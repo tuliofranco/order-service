@@ -1,6 +1,6 @@
-using OrderService.Core.Domain;
+using OrderService.Core.Domain.Entities;
 
-namespace OrderService.Core.Repositories;
+namespace OrderService.Core.Domain.Repositories;
 
 public interface IOrderRepository
 {

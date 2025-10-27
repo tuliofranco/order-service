@@ -1,6 +1,6 @@
 using OrderService.Core.Enums;
 
-namespace OrderService.Core.Domain;
+namespace OrderService.Core.Domain.Entities;
 
 public class Order
 {
@@ -16,7 +16,6 @@ public class Order
 
     public DateTime DataCriacaoUtc { get; set; }
 
-    // Fábrica estática pra garantir consistência na criação inicial
     public static Order Create(string clienteNome, string produto, decimal valor)
     {
         return new Order

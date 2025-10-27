@@ -1,4 +1,4 @@
-using OrderService.Core.Domain;
+using OrderService.Core.Domain.Entities;
 
 namespace OrderService.Core.Services;
 
