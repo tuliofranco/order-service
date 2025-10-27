@@ -1,0 +1,10 @@
+# Arquivos de Build.
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+*.log
+
+# Variáveis de Ambiente (Apenas o .env.example).
+.env
+.env.*
+!.env.example 
