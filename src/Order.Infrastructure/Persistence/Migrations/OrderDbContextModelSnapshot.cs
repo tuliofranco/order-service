@@ -58,6 +58,21 @@ namespace Order.Infrastructure.Persistence.Migrations
 
                     b.ToTable("orders", (string)null);
                 });
+
+            modelBuilder.Entity("ProcessedMessage", b =>
+                {
+                    b.Property<string>("MessageId")
+                        .HasColumnType("text")
+                        .HasColumnName("message_id");
+
+                    b.Property<DateTime>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at_utc");
+
+                    b.HasKey("MessageId");
+
+                    b.ToTable("processed_messages", (string)null);
+                });
 #pragma warning restore 612, 618
         }
     }

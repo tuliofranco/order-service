@@ -3,7 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Order.Core.Domain.Repositories;
 using Order.Infrastructure.Persistence;
 using Order.Infrastructure.Repositories;
-
+using Order.Infrastructure.Messaging.AzureServiceBus;
+using Order.Infrastructure.Messaging.Abstractions;
 
 namespace OrderService.Infrastructure;
 
@@ -34,7 +35,7 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IOrderRepository, OrderRepository>();
-
+        services.AddScoped<IServiceBusPublisher, ServiceBusPublisher>();
 
         return services;
     }

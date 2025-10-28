@@ -12,16 +12,16 @@ public class OrderRepository : IOrderRepository
     public OrderRepository(OrderDbContext ctx) => _ctx = ctx;
 
     public async Task<OrderEntity?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => await _ctx.Order.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id, ct);
+        => await _ctx.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id, ct);
 
     public async Task AddAsync(OrderEntity order, CancellationToken ct = default)
     {
-        await _ctx.Order.AddAsync(order, ct);
+        await _ctx.Orders.AddAsync(order, ct);
     }
 
     public Task UpdateAsync(OrderEntity order, CancellationToken ct = default)
     {
-        _ctx.Order.Update(order);
+        _ctx.Orders.Update(order);
         return Task.CompletedTask;
     }
 
@@ -29,8 +29,23 @@ public class OrderRepository : IOrderRepository
         => await _ctx.SaveChangesAsync(ct) > 0;
 
     public async Task<IReadOnlyList<OrderEntity>> GetAllAsync(CancellationToken ct = default)
-        => await _ctx.Order
+        => await _ctx.Orders
             .AsNoTracking()
             .OrderByDescending(o => o.DataCriacaoUtc)
             .ToListAsync(ct);
+
+    public async Task<bool> MarkProcessingIfPendingAsync(Guid orderId, CancellationToken ct = default)
+    {
+        var rows = await _ctx.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE orders
+            SET status = {"Processando"}
+            WHERE id = {orderId}
+              AND status = {"Pendente"};
+        ", ct);
+
+        return rows == 1;
+    }
+
+    public Task<bool> ExistsAsync(Guid orderId, CancellationToken ct = default)
+        => _ctx.Orders.AsNoTracking().AnyAsync(o => o.Id == orderId, ct);
 }

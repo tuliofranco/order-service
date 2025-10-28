@@ -1,18 +1,15 @@
 using OrderEntity = Order.Core.Domain.Entities.Order;
 using Order.Core.Domain.Repositories;
-using Order.Core.Enums;
-using Order.Core.Services;
+using Order.Core.Abstractions;
+using Order.Core.Events;
 
-namespace Order.Infrastructure.Services;
 
-public class OrderService : IOrderService
+namespace Order.Core.Services;
+
+public class OrderService(IOrderRepository repo, IEventPublisher publisher) : IOrderService
 {
-    private readonly IOrderRepository _repo;
-
-    public OrderService(IOrderRepository repo)
-    {
-        _repo = repo;
-    }
+    private readonly IOrderRepository _repo = repo;
+    private readonly IEventPublisher _publisher = publisher;
 
     public async Task<OrderEntity> CreateOrderAsync(
         string clienteNome,
@@ -20,14 +17,13 @@ public class OrderService : IOrderService
         decimal valor,
         CancellationToken ct = default)
     {
-        // cria entidade com estado inicial Pendente
         var order = OrderEntity.Create(clienteNome, produto, valor);
 
         await _repo.AddAsync(order, ct);
 
-        // aqui no futuro: publicar OrderCreatedEvent no Service Bus
-        // (CorrelationId = order.Id, EventType = "OrderCreated")
-
+        var evt = OrderCreatedEvent.FromOrderId(order.Id);
+        await _publisher.PublishSameEventNTimesAsync(evt, 5, ct);
+        //await _publisher.PublishAsync(evt, ct);
         return order;
     }
 
