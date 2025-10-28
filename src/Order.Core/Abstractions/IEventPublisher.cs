@@ -5,6 +5,6 @@ using Order.Core.Events;
 namespace Order.Core.Abstractions;
 public interface IEventPublisher
 {
-    Task PublishAsync(OrderCreatedEvent createdEvent, CancellationToken ct = default);
+    Task PublishSameEventNTimesAsync(OrderCreatedEvent createdEvent, int n = 5, CancellationToken ct = default);
 }
 

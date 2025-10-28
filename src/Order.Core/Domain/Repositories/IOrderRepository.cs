@@ -11,4 +11,6 @@ public interface IOrderRepository
     Task<IReadOnlyList<OrderEntity>> GetAllAsync(CancellationToken ct = default);
 
     Task UpdateAsync(OrderEntity order, CancellationToken ct = default);
+    Task<bool> MarkProcessingIfPendingAsync(Guid orderId, CancellationToken ct);
+    Task<bool> ExistsAsync(Guid orderId, CancellationToken ct);
 }

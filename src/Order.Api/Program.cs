@@ -1,14 +1,17 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Azure.Messaging.ServiceBus;
+
 using Order.Infrastructure.Persistence;
 using Order.Core.Domain.Repositories;
 using Order.Core.Services;
 using Order.Infrastructure.Messaging.Abstractions;
 using Order.Infrastructure.Messaging.AzureServiceBus;
-using Azure.Messaging.ServiceBus;
-using OrderAppService = Order.Core.Services.OrderService;
 using Order.Infrastructure.HealthChecks;
 using Order.Core.Abstractions;
-
+using OrderAppService = Order.Core.Services.OrderService;
+using HealthChecks.UI.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +26,9 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var connString = builder.Configuration["DEFAULT_CONNECTION"];
+var connString =
+    builder.Configuration["DEFAULT_CONNECTION"]
+    ?? "Host=db;Port=5432;Database=orders_db;Username=postgres;Password=postgres";
 
 if (string.IsNullOrWhiteSpace(connString))
 {
@@ -40,23 +45,22 @@ builder.Services.AddDbContext<OrderDbContext>(options =>
 builder.Services.AddSingleton<ServiceBusClient>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
-
     var serviceBusConnectionString = config["SERVICEBUS_CONNECTION"];
+
     if (string.IsNullOrWhiteSpace(serviceBusConnectionString))
     {
         throw new InvalidOperationException(
             "Service Bus connection string não configurada. Defina SERVICEBUS_CONNECTION no .env."
         );
-}
+    }
 
     return new ServiceBusClient(serviceBusConnectionString);
 });
 
-// registra o publisher
 builder.Services.AddSingleton<IServiceBusPublisher, ServiceBusPublisher>();
-
-
-builder.Services.AddHealthChecks();
+builder.Services.AddScoped<IEventPublisher, ServiceBusEventPublisher>();
+builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
+builder.Services.AddScoped<IOrderService, OrderAppService>();
 
 builder.Services.AddCors(options =>
 {
@@ -69,11 +73,15 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
-builder.Services.AddScoped<IEventPublisher, ServiceBusEventPublisher>();
-builder.Services.AddScoped<IOrderService, OrderAppService>();
-builder.Services.AddHealthChecks()
-    .AddCheck<ServiceBusHealthCheck>("servicebus");
+// --- Health Checks (tudo em um único encadeamento) ---
+builder.Services
+    .AddHealthChecks()
+    .AddNpgSql(connString, name: "postgres", failureStatus: HealthStatus.Unhealthy)
+    .AddCheck<ServiceBusHealthCheck>(
+        name: "servicebus",
+        failureStatus: HealthStatus.Unhealthy
+    );
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -82,16 +90,16 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-// Swagger sempre ativo (facilita teste)
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("default");
 
-app.UseHttpsRedirection();
-
 app.MapControllers();
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
 
 app.Run();

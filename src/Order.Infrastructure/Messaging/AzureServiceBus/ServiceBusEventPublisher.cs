@@ -18,9 +18,22 @@ public sealed class ServiceBusEventPublisher : IEventPublisher
     {
         return _publisher.PublishOrderCreatedAsync(
             domainEvent.OrderId,
-            domainEvent.EventType,        // "OrderCreated"
-            domainEvent.CorrelationId,    // = OrderId
+            domainEvent.EventType,
+            domainEvent.CorrelationId,
             ct
         );
+    }
+
+    public async Task PublishSameEventNTimesAsync(OrderCreatedEvent domainEvent, int n = 5, CancellationToken ct = default)
+    {
+        for (int i = 0; i < n; i++)
+        {
+            await _publisher.PublishOrderCreatedAsync(
+                domainEvent.OrderId,
+                domainEvent.EventType,
+                domainEvent.CorrelationId,
+                ct
+            );
+        }
     }
 }

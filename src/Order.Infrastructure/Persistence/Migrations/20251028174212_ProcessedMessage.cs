@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Order.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class ProcessedMessage : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -26,6 +26,18 @@ namespace Order.Infrastructure.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_orders", x => x.id);
                 });
+
+            migrationBuilder.CreateTable(
+                name: "processed_messages",
+                columns: table => new
+                {
+                    message_id = table.Column<string>(type: "text", nullable: false),
+                    processed_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_processed_messages", x => x.message_id);
+                });
         }
 
         /// <inheritdoc />
@@ -33,6 +45,9 @@ namespace Order.Infrastructure.Persistence.Migrations
         {
             migrationBuilder.DropTable(
                 name: "orders");
+
+            migrationBuilder.DropTable(
+                name: "processed_messages");
         }
     }
 }

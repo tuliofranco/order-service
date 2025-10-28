@@ -11,13 +11,14 @@ public class OrderDbContext : DbContext
     {
     }
 
-    // Tabela de pedidos
-    public DbSet<OrderEntity> Order => Set<OrderEntity>();
+    public DbSet<OrderEntity> Orders => Set<OrderEntity>();
+    public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
+        // ========== MAPEAMENTO DE Order ==========
         modelBuilder.Entity<OrderEntity>(cfg =>
         {
             cfg.ToTable("orders");
@@ -50,6 +51,21 @@ public class OrderDbContext : DbContext
             cfg.Property(o => o.DataCriacaoUtc)
                .HasColumnName("data_criacao_utc")
                .IsRequired();
+        });
+
+        modelBuilder.Entity<ProcessedMessage>(b =>
+        {
+            b.ToTable("processed_messages");
+
+            b.HasKey(x => x.MessageId);
+
+            b.Property(x => x.MessageId)
+             .HasColumnName("message_id")
+             .IsRequired();
+
+            b.Property(x => x.ProcessedAtUtc)
+             .HasColumnName("processed_at_utc")
+             .IsRequired();
         });
     }
 }

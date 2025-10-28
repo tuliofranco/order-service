@@ -39,21 +39,23 @@ namespace Order.Infrastructure.Messaging.AzureServiceBus
 
             var message = new ServiceBusMessage(bodyJson)
             {
-                // requisito do enunciado:
-                CorrelationId = correlationId.ToString()
+                MessageId = orderId.ToString(),
+                CorrelationId = correlationId.ToString(),
+                ContentType = "application/json",
             };
 
-            // requisito do enunciado:
             message.ApplicationProperties["EventType"] = eventType;
+            message.ApplicationProperties["OrderId"] = orderId.ToString();
 
             await _sender.SendMessageAsync(message, ct);
 
             _logger.LogInformation(
-                "Mensagem {EventType} publicada no Service Bus. OrderId={OrderId}",
+                "Mensagem {EventType} publicada. OrderId={OrderId} CorrelationId={CorrelationId} MessageId={MessageId}",
                 eventType,
-                orderId);
+                orderId,
+                correlationId,
+                message.MessageId);
         }
-
         public async ValueTask DisposeAsync()
         {
             await _sender.DisposeAsync();
