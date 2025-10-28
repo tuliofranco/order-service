@@ -1,0 +1,113 @@
+"use client";
+
+import { memo } from "react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import type { OrderItem } from "@/types/order-item";
+
+type OrdersTableProps = {
+  orders: OrderItem[];
+  loading: boolean;
+  formatCurrency: (v: number) => string;
+  formatDateTime: (iso: string) => string;
+  getStatusVariant: (
+    status: string
+  ) => "default" | "secondary" | "destructive" | "outline";
+  actionRenderer: (order: OrderItem) => React.ReactNode;
+};
+
+function OrdersTable({
+  orders,
+  loading,
+  formatCurrency,
+  formatDateTime,
+  getStatusVariant,
+  actionRenderer,
+}: OrdersTableProps) {
+  const hasData = orders.length > 0;
+
+  return (
+    <div className="rounded-lg border bg-white overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-gray-50">
+            <TableHead className="font-semibold">ID</TableHead>
+            <TableHead className="font-semibold">Cliente</TableHead>
+            <TableHead className="font-semibold">Produto</TableHead>
+            <TableHead className="font-semibold">Valor</TableHead>
+            <TableHead className="font-semibold">Status</TableHead>
+            <TableHead className="font-semibold">Data de Criação</TableHead>
+            <TableHead className="font-semibold text-right">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {loading ? (
+            <TableRow>
+              <TableCell
+                colSpan={7}
+                className="text-center py-8 text-gray-500 text-sm"
+              >
+                Carregando pedidos...
+              </TableCell>
+            </TableRow>
+          ) : !hasData ? (
+            <TableRow>
+              <TableCell
+                colSpan={7}
+                className="text-center py-8 text-gray-500 text-sm"
+              >
+                Nenhum pedido disponível.
+              </TableCell>
+            </TableRow>
+          ) : (
+            orders.map((order) => (
+              <TableRow
+                key={order.id}
+                className="hover:bg-gray-50 transition-colors"
+              >
+                <TableCell className="font-mono text-xs text-gray-600">
+                  {order.id.slice(0, 8)}...
+                </TableCell>
+
+                <TableCell className="font-medium">
+                  {order.clienteNome}
+                </TableCell>
+
+                <TableCell>{order.produto}</TableCell>
+
+                <TableCell className="font-semibold text-[#0f2740]">
+                  {formatCurrency(order.valor)}
+                </TableCell>
+
+                <TableCell>
+                  <Badge variant={getStatusVariant(order.status)}>
+                    {order.status}
+                  </Badge>
+                </TableCell>
+
+                <TableCell className="text-sm text-gray-600">
+                  {formatDateTime(order.dataCriacaoUtc)}
+                </TableCell>
+
+                <TableCell className="text-right">
+                  {actionRenderer(order)}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+export default memo(OrdersTable);

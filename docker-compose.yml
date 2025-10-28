@@ -34,7 +34,7 @@ services:
 
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: ./src/Order.Api/Dockerfile
     container_name: orders-api
     restart: unless-stopped
@@ -45,19 +45,20 @@ services:
       - .env
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      DEFAULT_CONNECTION: ${DEFAULT_CONNECTION}
+      SERVICEBUS_CONNECTION: ${SERVICEBUS_CONNECTION}
+      SERVICEBUS_QUEUE: ${SERVICEBUS_QUEUE}
     ports:
       - "${API_PORT}:8080"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-
+    # healthcheck:
+    #   test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
 
   worker:
     build:
-      context: .
+      context: ./backend
       dockerfile: ./src/Order.Worker/Dockerfile
     container_name: orders-worker
     restart: unless-stopped
@@ -68,6 +69,25 @@ services:
       - .env
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      DEFAULT_CONNECTION: ${DEFAULT_CONNECTION}
+      SERVICEBUS_CONNECTION: ${SERVICEBUS_CONNECTION}
+      SERVICEBUS_QUEUE: ${SERVICEBUS_QUEUE}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    container_name: orders-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # ainda passamos para runtime para Server Components/APIs (ok manter)
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres_data:
