@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-
 import { ordersService } from "@/lib/services/orders";
 import type { OrderItem } from "@/types/order-item";
 

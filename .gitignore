@@ -10,4 +10,19 @@
 !.env.example 
 
 
-*/node_modules
+# Frontend
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+.next.cache/
+dist/
+build/
+
+# Editor / sistema
+.vscode/
+.DS_Store
+**.DS_Store
+
+# Docker
+**/docker-data/

@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import type { OrderCreate } from "@/types/order-create";
 import type { OrdersList } from "@/types/orders-list";
-import type { OrderItem } from "@/types/orders-list";
+import type { OrderItem } from "@/types/order-item";
 
 export const ordersService = {
   
