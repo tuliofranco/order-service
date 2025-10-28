@@ -35,10 +35,6 @@ namespace Order.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("cliente_nome");
 
-                    b.Property<DateTime>("DataCriacaoUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("data_criacao_utc");
-
                     b.Property<string>("Produto")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -53,6 +49,10 @@ namespace Order.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Valor")
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valor");
+
+                    b.Property<DateTime>("data_criacao")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("data_criacao");
 
                     b.HasKey("Id");
 

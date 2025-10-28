@@ -12,8 +12,8 @@ using Order.Infrastructure.Persistence;
 namespace Order.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(OrderDbContext))]
-    [Migration("20251028174212_ProcessedMessage")]
-    partial class ProcessedMessage
+    [Migration("20251028223600_Orders-with-idempotency")]
+    partial class Orderswithidempotency
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -38,10 +38,6 @@ namespace Order.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("cliente_nome");
 
-                    b.Property<DateTime>("DataCriacaoUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("data_criacao_utc");
-
                     b.Property<string>("Produto")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -56,6 +52,10 @@ namespace Order.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Valor")
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valor");
+
+                    b.Property<DateTime>("data_criacao")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("data_criacao");
 
                     b.HasKey("Id");
 

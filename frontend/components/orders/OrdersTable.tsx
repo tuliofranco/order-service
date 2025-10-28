@@ -95,7 +95,7 @@ function OrdersTable({
                 </TableCell>
 
                 <TableCell className="text-sm text-gray-600">
-                  {formatDateTime(order.dataCriacaoUtc)}
+                  {formatDateTime(order.data_criacao)}
                 </TableCell>
 
                 <TableCell className="text-right">

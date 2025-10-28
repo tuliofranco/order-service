@@ -23,7 +23,7 @@ public class EfOrderRepository : IOrderRepository
     {
         return await _db.Orders
             .AsNoTracking()
-            .OrderByDescending(o => o.DataCriacaoUtc)
+            .OrderByDescending(o => o.data_criacao)
             .ToListAsync(ct);
     }
 

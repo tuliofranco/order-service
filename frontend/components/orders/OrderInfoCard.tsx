@@ -37,7 +37,7 @@ export function OrderInfoCard({ order, loading, error }: OrderInfoCardProps) {
             <InfoRow label="Status" value={order.status} />
             <InfoRow
               label="Criado em"
-              value={formatDateTime(order.dataCriacaoUtc)}
+              value={formatDateTime(order.data_criacao)}
             />
           </div>
         )}

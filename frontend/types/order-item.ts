@@ -4,5 +4,5 @@ export type OrderItem = {
   produto: string;
   valor: number;
   status: string;
-  dataCriacaoUtc: string;
+  data_criacao: string;
 };

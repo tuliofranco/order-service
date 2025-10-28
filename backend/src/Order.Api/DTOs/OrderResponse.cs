@@ -17,7 +17,7 @@ public class OrderResponse
 
     public string Status { get; set; } = string.Empty;
 
-    public DateTime DataCriacaoUtc { get; set; }
+    public DateTime data_criacao { get; set; }
 
     public static OrderResponse FromDomain(Order.Core.Domain.Entities.Order order)
     {
@@ -28,7 +28,7 @@ public class OrderResponse
             Produto = order.Produto,
             Valor = order.Valor,
             Status = order.Status.ToString(),
-            DataCriacaoUtc = order.DataCriacaoUtc
+            data_criacao = order.data_criacao
         };
     }
 }

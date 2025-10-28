@@ -48,8 +48,8 @@ public class OrderDbContext : DbContext
                .HasConversion<string>()
                .IsRequired();
 
-            cfg.Property(o => o.DataCriacaoUtc)
-               .HasColumnName("data_criacao_utc")
+            cfg.Property(o => o.data_criacao)
+               .HasColumnName("data_criacao")
                .IsRequired();
         });
 

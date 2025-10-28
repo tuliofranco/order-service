@@ -14,7 +14,7 @@ public class Order
 
     public OrderStatus Status { get; set; }
 
-    public DateTime DataCriacaoUtc { get; set; }
+    public DateTime data_criacao { get; set; }
 
     public static Order Create(string clienteNome, string produto, decimal valor)
     {
@@ -25,7 +25,7 @@ public class Order
             Produto = produto,
             Valor = valor,
             Status = OrderStatus.Pendente,
-            DataCriacaoUtc = DateTime.UtcNow
+            data_criacao = DateTime.UtcNow
         };
     }
 }

@@ -31,7 +31,7 @@ public class OrderRepository : IOrderRepository
     public async Task<IReadOnlyList<OrderEntity>> GetAllAsync(CancellationToken ct = default)
         => await _ctx.Orders
             .AsNoTracking()
-            .OrderByDescending(o => o.DataCriacaoUtc)
+            .OrderByDescending(o => o.data_criacao)
             .ToListAsync(ct);
 
     public async Task<bool> MarkProcessingIfPendingAsync(Guid orderId, CancellationToken ct = default)

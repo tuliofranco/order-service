@@ -22,8 +22,8 @@ public class OrderService(IOrderRepository repo, IEventPublisher publisher) : IO
         await _repo.AddAsync(order, ct);
 
         var evt = OrderCreatedEvent.FromOrderId(order.Id);
-        await _publisher.PublishSameEventNTimesAsync(evt, 5, ct);
-        //await _publisher.PublishAsync(evt, ct);
+        //await _publisher.PublishSameEventNTimesAsync(evt, 5, ct);
+        await _publisher.PublishAsync(evt, ct);
         return order;
     }
 
