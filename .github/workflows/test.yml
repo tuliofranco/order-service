@@ -25,11 +25,9 @@ jobs:
       TESTCONTAINERS_CHECKS_DISABLE: true
 
     steps:
-      # 1. Checkout do código
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Instalação do .NET (usa a mesma versão que você tá usando localmente: net9.0)
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -55,7 +53,6 @@ jobs:
             "-targetdir:coverage-report" \
             "-reporttypes:HtmlSummary;Html"
 
-      # 8. Publica o relatório como artifact do job (fica pra download no PR)
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
