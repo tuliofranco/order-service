@@ -11,11 +11,26 @@ using Order.Core.Abstractions;
 using HealthChecks.UI.Client;
 using Order.Api.Infrastructure.Logging;
 using Order.Core.Events;
-
+using Order.Api.Health;
 var builder = WebApplication.CreateBuilder(args);
 
 try { DotNetEnv.Env.TraversePath().Load(); } catch { }
 
+
+
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy("API alive")); 
+
+builder.Services.AddSingleton<IHealthCheckPublisher, ComponentHealthPublisher>();
+
+
+builder.Services.Configure<HealthCheckPublisherOptions>(opt =>
+{
+    opt.Delay = TimeSpan.Zero;
+    opt.Period = TimeSpan.FromMinutes(1);
+    opt.Predicate = _ => true;
+});
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(o =>
