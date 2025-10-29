@@ -3,8 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Order.Core.Domain.Repositories;
 using Order.Infrastructure.Persistence;
 using Order.Infrastructure.Repositories;
-using Order.Infrastructure.Messaging.AzureServiceBus;
-using Order.Infrastructure.Messaging.Abstractions;
+using Order.Infrastructure.Messaging;
 
 namespace OrderService.Infrastructure;
 

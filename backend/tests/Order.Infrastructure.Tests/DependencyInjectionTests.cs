@@ -3,7 +3,7 @@ using System.Linq;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Order.Core.Domain.Repositories;
-using Order.Infrastructure.Messaging.Abstractions;
+using Order.Infrastructure.Messaging;
 using Order.Infrastructure.Persistence;
 using OrderService.Infrastructure;
 using Xunit;

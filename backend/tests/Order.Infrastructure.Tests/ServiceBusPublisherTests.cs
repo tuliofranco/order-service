@@ -9,7 +9,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Order.Infrastructure.Messaging.AzureServiceBus;
+using Order.Infrastructure.Messaging;
 using Xunit;
 
 namespace Order.Infrastructure.Tests;

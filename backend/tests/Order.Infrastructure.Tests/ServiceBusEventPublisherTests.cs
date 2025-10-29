@@ -4,8 +4,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using Order.Core.Events;
-using Order.Infrastructure.Messaging.Abstractions;
-using Order.Infrastructure.Messaging.AzureServiceBus;
+using Order.Infrastructure.Messaging;
 using Xunit;
 
 namespace Order.Infrastructure.Tests;
