@@ -9,11 +9,20 @@ using Order.Infrastructure.Messaging;
 using Order.Infrastructure.HealthChecks;
 using Order.Core.Abstractions;
 using HealthChecks.UI.Client;
+using Order.Api.Infrastructure.Logging;
 using Order.Core.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
 try { DotNetEnv.Env.TraversePath().Load(); } catch { }
+
+
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole(o =>
+{
+    o.IncludeScopes = true;
+});
+
 
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
@@ -76,7 +85,8 @@ using (var scope = app.Services.CreateScope())
     if (db.Database.IsRelational())
         db.Database.Migrate();
 }
-
+app.UseRouting();
+app.UseMiddleware<OrderIdRouteScopeMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("default");

@@ -2,6 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Order.Api.DTOs;
 using Order.Core.Services;
 using System.Net;
+using Order.Core.Logging;
+using Microsoft.Extensions.Logging;
+
+
 
 namespace Order.Api.Controllers;
 
@@ -13,21 +17,14 @@ namespace Order.Api.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
+    private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(IOrderService orderService)
+    public OrdersController(IOrderService orderService, ILogger<OrdersController> logger)
     {
         _orderService = orderService;
+        _logger = logger;
     }
 
-    /// <summary>
-    /// Cria um novo pedido.
-    /// </summary>
-    /// <remarks>
-    /// - Status inicial sempre será "Pendente".  
-    /// - Após criar, o pedido será enviado para processamento via Service Bus (futuro).
-    /// </remarks>
-    /// <param name="request">Dados de criação do pedido</param>
-    /// <response code="201">Pedido criado com sucesso</response>
     [HttpPost]
     [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status201Created)]
     public async Task<IActionResult> Create([FromBody] CreateOrderRequest request, CancellationToken ct)
@@ -39,9 +36,21 @@ public class OrdersController : ControllerBase
             ct
         );
 
+        // CorrelationId = OrderId (escopo de log)
+        using (_logger.BeginScope(new Dictionary<string, object>
+        {
+            [Correlation.Key] = created.Id.ToString()
+        }))
+        {
+            _logger.LogInformation(
+                "Order created by {Cliente} for {Produto} value {Valor}",
+                request.ClienteNome, request.Produto, request.Valor
+            );
+
+        }
+
         var response = OrderResponse.FromDomain(created);
 
-        // retorna 201 + Location header (/orders/{id})
         return CreatedAtAction(
             nameof(GetById),
             new { id = response.Id },
@@ -66,12 +75,7 @@ public class OrdersController : ControllerBase
         return Ok(response);
     }
 
-    /// <summary>
-    /// Busca um pedido pelo seu ID.
-    /// </summary>
-    /// <param name="id">Id do pedido</param>
-    /// <response code="200">Pedido encontrado</response>
-    /// <response code="404">Pedido não existe</response>
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -13,6 +13,7 @@ using Order.Infrastructure.Persistence;
 using orderEnum = Order.Core.Enums.OrderStatus;
 using Order.Worker.Services;
 using Order.Core.Domain.Repositories;
+using Order.Core.Logging;
 
 namespace Order.Worker.Consumers;
 
@@ -91,8 +92,99 @@ public sealed class OrderCreatedConsumer : BackgroundService
             );
             return;
         }
+
         await ProcessOrderAsync(payload.OrderId, messageId, args.CancellationToken);
         await args.CompleteMessageAsync(args.Message);
+
+        using (_logger.BeginScope(new Dictionary<string, object?>
+        {
+            [Correlation.Key] = payload.OrderId.ToString(),
+            // opcional: guarda também o CorrelationId físico do Service Bus, se vier:
+            ["SbCorrelationId"] = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId
+        }))
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+            var updater = scope.ServiceProvider.GetRequiredService<StatusUpdater>();
+
+            // === ETAPA 1: Atualiza para Processando (persistido), sem transação longa ===
+            try
+            {
+                var repo = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+
+                var changed = await repo.MarkProcessingIfPendingAsync(payload.OrderId, args.CancellationToken);
+                if (changed)
+                {
+                    _logger.LogInformation("Pedido {OrderId} marcado como Processando.", payload.OrderId);
+                }
+                else
+                {
+                    // Pode ser que o pedido não exista OU já não esteja Pendente
+                    var exists = await repo.ExistsAsync(payload.OrderId, args.CancellationToken);
+                    if (!exists)
+                    {
+                        _logger.LogWarning("Pedido {OrderId} não encontrado. DLQ.", payload.OrderId);
+                        await args.DeadLetterMessageAsync(args.Message, "OrderNotFound", "OrderId inexistente.");
+                        return;
+                    }
+
+                    // Já estava Processando/Finalizado — nada a fazer aqui
+                    _logger.LogInformation("Pedido {OrderId} já não está Pendente (ignorado).", payload.OrderId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falha ao marcar Processando. Reentrega.");
+                return; // não completa: permite reentrega
+            }
+            // === Espera 5 segundos, sem segurar transação ===
+            await Task.Delay(TimeSpan.FromSeconds(5), args.CancellationToken);
+
+            // === ETAPA 2: Reserva atômica + finalização em transação curta ===
+            await using var tx = await db.Database.BeginTransactionAsync(args.CancellationToken);
+            try
+            {
+                var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
+                    INSERT INTO processed_messages (message_id, processed_at_utc)
+                    VALUES ({messageId}, {DateTime.UtcNow})
+                    ON CONFLICT (message_id) DO NOTHING;
+                ", args.CancellationToken);
+
+                if (rows == 0)
+                {
+                    // Outra instância já reservou/processou
+                    await tx.RollbackAsync(args.CancellationToken);
+                    _logger.LogInformation("Duplicata detectada (reserva). MessageId={MessageId}. Ignorando.", messageId);
+                    await args.CompleteMessageAsync(args.Message);
+                    return;
+                }
+
+                var order = await db.Orders.FindAsync(new object?[] { payload.OrderId }, args.CancellationToken);
+                if (order is null)
+                {
+                    _logger.LogWarning("Pedido {OrderId} não encontrado na etapa final.", payload.OrderId);
+                    await tx.RollbackAsync(args.CancellationToken);
+                    return;
+                }
+
+                if (order.Status != orderEnum.Finalizado)
+                {
+                    order.Status = orderEnum.Finalizado;
+                    _logger.LogInformation("Pedido {OrderId} marcado como Finalizado.", payload.OrderId);
+                }
+
+                await db.SaveChangesAsync(args.CancellationToken);
+
+                await tx.CommitAsync(args.CancellationToken);
+                await args.CompleteMessageAsync(args.Message);
+                _logger.LogInformation("Processamento concluído. MessageId={MessageId}", messageId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falha ao finalizar MessageId={MessageId}. Reentrega.", messageId);
+                await tx.RollbackAsync(args.CancellationToken);
+            }
+        }
     }
 
     private Task HandleErrorAsync(ProcessErrorEventArgs args)
