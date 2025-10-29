@@ -4,10 +4,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Order.Core.Domain.Entities;
 using Order.Core.Enums;
 using Order.Infrastructure.Persistence;
 using Order.Infrastructure.Repositories;
+using Microsoft.Data.Sqlite;
+using Testcontainers.PostgreSql;
 using Xunit;
 using DomainOrder = Order.Core.Domain.Entities.Order;
 
@@ -27,20 +28,18 @@ public class OrderRepositoryTests
     [Fact]
     public async Task AddAsync_E_SaveChangesAsync_DevePersistirOrderENaoPerderDados()
     {
-        // arrange
         using var ctx = CreateInMemoryContext();
         var repo = new OrderRepository(ctx);
 
         var order = DomainOrder.Create("Tulio", "Boleto", 300m);
 
-        // act
+
         await repo.AddAsync(order, CancellationToken.None);
         var saved = await repo.SaveChangesAsync(CancellationToken.None);
 
-        // assert
+
         saved.Should().BeTrue("SaveChangesAsync deve retornar true quando houve alteração");
 
-        // vamos garantir que está realmente no 'banco'
         var loaded = await repo.GetByIdAsync(order.Id, CancellationToken.None);
 
         loaded.Should().NotBeNull();
@@ -55,11 +54,9 @@ public class OrderRepositoryTests
     [Fact]
     public async Task GetAllAsync_DeveRetornarEmOrdemDecrescenteDeDataCriacao()
     {
-        // arrange
         using var ctx = CreateInMemoryContext();
         var repo = new OrderRepository(ctx);
 
-        // Três orders com datas diferentes pra testar a ordenação
         var older = DomainOrder.Create("Cliente A", "Produto A", 10m);
         older.data_criacao = DateTime.UtcNow.AddMinutes(-30);
 
@@ -75,13 +72,10 @@ public class OrderRepositoryTests
 
         await repo.SaveChangesAsync();
 
-        // act
         var all = await repo.GetAllAsync();
 
-        // assert
         all.Should().HaveCount(3);
 
-        // o mais novo primeiro
         all.Select(x => x.Id).Should().ContainInOrder(new[]
         {
             newer.Id,
@@ -93,7 +87,6 @@ public class OrderRepositoryTests
     [Fact]
     public async Task ExistsAsync_DeveRetornarTrueSeExisteFalseSeNaoExiste()
     {
-        // arrange
         using var ctx = CreateInMemoryContext();
         var repo = new OrderRepository(ctx);
 
@@ -102,11 +95,9 @@ public class OrderRepositoryTests
         await repo.AddAsync(order);
         await repo.SaveChangesAsync();
 
-        // act
         var exists = await repo.ExistsAsync(order.Id);
         var notExists = await repo.ExistsAsync(Guid.NewGuid());
 
-        // assert
         exists.Should().BeTrue("acabamos de salvar essa order");
         notExists.Should().BeFalse("esse Guid não está salvo");
     }
@@ -123,5 +114,95 @@ public class OrderRepositoryTests
 
         // assert
         result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task MarkProcessingIfPendingAsync_DeveMudarDePendenteParaProcessando_E_RetornarTrue()
+    {
+        // Testar um método relacional, é necessário um provider relacional.
+        using var conn = new SqliteConnection("DataSource=:memory:");
+        await conn.OpenAsync();
+
+        var options = new DbContextOptionsBuilder<OrderDbContext>()
+            .UseSqlite(conn)
+            .Options;
+
+        using var ctx = new OrderDbContext(options);
+        await ctx.Database.EnsureCreatedAsync();
+
+        var repo = new OrderRepository(ctx);
+
+        var order = DomainOrder.Create("Cliente", "Produto", 99m);
+        await repo.AddAsync(order, CancellationToken.None);
+        await repo.SaveChangesAsync(CancellationToken.None);
+
+        var before = await repo.GetByIdAsync(order.Id, CancellationToken.None);
+        before!.Status.Should().Be(OrderStatus.Pendente);
+
+        var changed = await repo.MarkProcessingIfPendingAsync(order.Id, CancellationToken.None);
+
+        changed.Should().BeTrue("deve mudar de Pendente para Processando uma única vez");
+
+        var after = await repo.GetByIdAsync(order.Id, CancellationToken.None);
+        after!.Status.Should().Be(OrderStatus.Processando);
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.Processando)]
+    [InlineData(OrderStatus.Finalizado)]
+    public async Task MarkProcessingIfPendingAsync_NaoDeveAlterarSeNaoEstiverPendente_E_RetornaFalse(OrderStatus initial)
+    {
+        using var conn = new SqliteConnection("DataSource=:memory:");
+        await conn.OpenAsync();
+
+        var options = new DbContextOptionsBuilder<OrderDbContext>()
+                .UseSqlite(conn)
+                .Options;
+
+        using var ctx = new OrderDbContext(options);
+        await ctx.Database.EnsureCreatedAsync();
+
+        var repo = new OrderRepository(ctx);
+
+        var order = DomainOrder.Create("Cliente", "Produto", 99m);
+        order.Status = initial;
+        await repo.AddAsync(order);
+        await repo.SaveChangesAsync();
+
+        var changed = await repo.MarkProcessingIfPendingAsync(order.Id, CancellationToken.None);
+
+        changed.Should().BeFalse($"quando status inicial é {initial}, não deve alterar");
+        var after = await repo.GetByIdAsync(order.Id);
+        after!.Status.Should().Be(initial);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DevePersistirAlteracoes_EmEntidadeExistente()
+    {
+        using var ctx = new OrderDbContext(
+            new DbContextOptionsBuilder<OrderDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options);
+
+        var repo = new OrderRepository(ctx);
+
+        var order = DomainOrder.Create("Cliente A", "Produto A", 100m);
+        await repo.AddAsync(order);
+        await repo.SaveChangesAsync();
+
+        // act: altera alguns campos e persiste
+        order.ClienteNome = "Cliente A+";
+        order.Produto     = "Produto A+";
+        order.Valor       = 150m;
+
+        await repo.UpdateAsync(order);
+        var saved = await repo.SaveChangesAsync();
+
+        // assert
+        saved.Should().BeTrue();
+        var loaded = await repo.GetByIdAsync(order.Id);
+        loaded!.ClienteNome.Should().Be("Cliente A+");
+        loaded.Produto.Should().Be("Produto A+");
+        loaded.Valor.Should().Be(150m);
     }
 }
