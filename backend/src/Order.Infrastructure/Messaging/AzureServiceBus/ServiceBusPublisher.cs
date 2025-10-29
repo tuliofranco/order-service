@@ -50,10 +50,8 @@ public sealed class ServiceBusPublisher : IServiceBusPublisher, IAsyncDisposable
 
         _logger.LogInformation(
             "Mensagem {EventType} publicada. OrderId={OrderId} CorrelationId={CorrelationId} MessageId={MessageId}",
-            eventType,
-            orderId,
-            correlationId,
-            message.MessageId);
+            "OrderCreated", orderId, correlationId, message.MessageId
+        );
     }
     public async ValueTask DisposeAsync()
     {
