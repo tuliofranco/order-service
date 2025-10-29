@@ -1,99 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Eye } from "lucide-react";
 
-import { ordersService } from "@/lib/services/orders";
-import type { OrderItem } from "@/types/order-item";
-
-import { Card, CardContent } from "@/components/ui/card";
+import { useOrders } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
+import { useStatusToasts } from "@/hooks/useStatusToasts";
 
 import AppSidebar from "@/components/layout/AppSidebar";
 import OrdersHeader from "@/components/orders/OrdersHeader";
 import OrdersTable from "@/components/orders/OrdersTable";
 import CreateOrderForm from "@/components/orders/CreateOrderForm";
 
-import {
-  formatDateTime,
-  formatCurrency,
-  getStatusVariant,
-} from "@/lib/formatters";
+import { formatDateTime, formatCurrency, getStatusVariant } from "@/lib/formatters";
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<OrderItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { orders, isLoading: loading, error, mutate } = useOrders();
   const { toast } = useToast();
 
-  // Carregar pedidos ao montar
-  useEffect(() => {
-    let active = true;
+  useStatusToasts(orders, {
+    onlyWhenFinalized: false,
+    dedupeMs: 1500,
+  });
 
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await ordersService.list();
-        if (active) {
-          setOrders(data ?? []);
-          setError(null);
-        }
-      } catch (e: any) {
-        if (active) {
-          setError(e?.message ?? "Erro ao carregar pedidos");
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Quando um pedido novo é criado
-  function handleOrderCreated(created: OrderItem) {
-    setOrders((prev) => [created, ...prev]);
+  async function handleOrderCreated() {
+    await mutate();
     toast({
       title: "Pedido criado!",
-      description: `${created.clienteNome} • ${formatCurrency(
-        created.valor
-      )} • ${created.produto}`,
+      description: "Estamos processando o status em tempo real.",
     });
   }
 
   return (
     <div className="min-h-screen grid md:grid-cols-[280px_1fr] bg-gray-50">
-      {/* Sidebar fixa no desktop */}
       <AppSidebar />
-
-      {/* Conteúdo */}
       <main className="flex items-start justify-center p-4 sm:p-6">
         <div className="w-full max-w-7xl">
-          <Card className="border-0 shadow-md rounded-2xl overflow-hidden bg-white">
+          <div className="border-0 shadow-md rounded-2xl overflow-hidden bg-white">
             <OrdersHeader
               total={orders.length}
               loading={loading}
               title="Pedidos"
               subtitle="Visualize e crie pedidos do sistema"
             />
-
-            <CardContent className="p-6 space-y-6">
-              {/* Formulário de criação */}
+            <div className="p-6 space-y-6">
               <CreateOrderForm onCreated={handleOrderCreated} />
-
-              {/* Mensagem de erro geral */}
               {error && (
-                <p className="text-sm text-red-600 font-medium">{error}</p>
+                <p className="text-sm text-red-600 font-medium">
+                  {error.message ?? "Erro ao carregar pedidos"}
+                </p>
               )}
-
-              {/* Tabela */}
               <OrdersTable
-                orders={orders}
+                orders={orders ?? []}
                 loading={loading}
                 formatCurrency={formatCurrency}
                 formatDateTime={formatDateTime}
@@ -109,8 +67,8 @@ export default function OrdersPage() {
                   </Link>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </main>
     </div>
