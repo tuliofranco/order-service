@@ -35,20 +35,23 @@ public class OrdersController : ControllerBase
             request.Valor,
             ct
         );
-
-        // CorrelationId = OrderId (escopo de log)
+        var correlationId = created.Id.ToString();
         using (_logger.BeginScope(new Dictionary<string, object>
         {
-            [Correlation.Key] = created.Id.ToString()
+            ["component"] = "API",
+            ["event"] = "OrderCreated",
+            ["orderId"] = correlationId,
+            ["correlationId"] = correlationId,
+            [Correlation.Key] = correlationId,
         }))
-        {
-            _logger.LogInformation(
+        { }
+        _logger.LogInformation(
                 "Order created by {Cliente} for {Produto} value {Valor}",
                 request.ClienteNome, request.Produto, request.Valor
-            );
+        );
 
-        }
-
+        Response.Headers["X-Correlation-Id"] = correlationId;
+        
         var response = OrderResponse.FromDomain(created);
 
         return CreatedAtAction(
