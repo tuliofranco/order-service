@@ -100,7 +100,7 @@ public sealed class OrderCreatedConsumer : BackgroundService
             }
             try
             {
-                await ProcessOrderAsync(payload.OrderId, messageId, args.CancellationToken);
+                await ProcessOrderAsync(payload.OrderId, messageId, correlationId, args.CancellationToken);
                 await args.CompleteMessageAsync(args.Message, args.CancellationToken);
                 _logger.LogInformation("Processamento concluído. MessageId={MessageId}", messageId);
             }
@@ -143,68 +143,89 @@ public sealed class OrderCreatedConsumer : BackgroundService
     }
 
 
-    public async Task ProcessOrderAsync(Guid orderId, string messageId, CancellationToken ct)
+    public async Task ProcessOrderAsync(Guid orderId, string messageId, string? correlationId, CancellationToken ct)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db      = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
-        var repo    = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
-
-        // status -> Processando
-        var changed = await repo.MarkProcessingIfPendingAsync(orderId, ct);
-
-        if (!changed)
+        using (_logger.BeginScope(new Dictionary<string, object?>
         {
-            var exists = await repo.ExistsAsync(orderId, ct);
-            if (!exists)
+            ["orderId"] = orderId.ToString(),
+            ["correlationId"] = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId,
+            ["component"] = "Worker",            // redundante mas útil pra filtros
+            [Correlation.Key] = orderId.ToString()   // mantém tua chave padrão "OrderId"
+        }))
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+            var repo = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+
+            // status -> Processando
+            var changed = await repo.MarkProcessingIfPendingAsync(orderId, ct);
+            
+
+            if (changed)
             {
-                _logger.LogWarning("Pedido {OrderId} não encontrado.", orderId);
-                return;
+                _logger.LogInformation(
+                    "event={event} fromStatus={from} toStatus={to}",
+                    "OrderStatusProcessing", "Pendente", "Processando"
+                );
+            }
+            else
+            {
+                var exists = await repo.ExistsAsync(orderId, ct);
+                if (!exists)
+                {
+                    _logger.LogWarning("Pedido {OrderId} não encontrado.", orderId);
+                    return;
+                }
+
+                _logger.LogInformation("Pedido {OrderId} já não está Pendente (ignorado).", orderId);
             }
 
-            _logger.LogInformation("Pedido {OrderId} já não está Pendente (ignorado).", orderId);
-        }
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
 
-        // Deley de 5 sec
-        await Task.Delay(TimeSpan.FromSeconds(5), ct);
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        try
-        {
-            var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
+            try
+            {
+                var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO processed_messages (message_id, processed_at_utc)
                 VALUES ({messageId}, {DateTime.UtcNow})
                 ON CONFLICT (message_id) DO NOTHING;
             ", ct);
 
-            if (rows == 0)
+                if (rows == 0)
+                {
+                    await tx.RollbackAsync(ct);
+                    _logger.LogInformation("Duplicata detectada. MessageId={MessageId}. Ignorando.", messageId);
+                    return;
+                }
+
+                var order = await db.Orders.FindAsync(new object?[] { orderId }, ct);
+                if (order is null)
+                {
+                    await tx.RollbackAsync(ct);
+                    _logger.LogWarning("Pedido {OrderId} não encontrado na etapa final.", orderId);
+                    return;
+                }
+
+                if (order.Status != orderEnum.Finalizado)
+                {
+                    var from = order.Status.ToString();
+                    order.Status = orderEnum.Finalizado;
+                    _logger.LogInformation(
+                    "event={event} fromStatus={from} toStatus={to}",
+                    "OrderStatusFinalized", from, "Finalizado"
+                );
+                }
+
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+            }
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Falha ao finalizar MessageId={MessageId}.", messageId);
                 await tx.RollbackAsync(ct);
-                _logger.LogInformation("Duplicata detectada. MessageId={MessageId}. Ignorando.", messageId);
-                return;
             }
-
-            var order = await db.Orders.FindAsync(new object?[] { orderId }, ct);
-            if (order is null)
-            {
-                await tx.RollbackAsync(ct);
-                _logger.LogWarning("Pedido {OrderId} não encontrado na etapa final.", orderId);
-                return;
-            }
-
-            if (order.Status != orderEnum.Finalizado)
-            {
-                order.Status = orderEnum.Finalizado;
-                _logger.LogInformation("Pedido {OrderId} marcado como Finalizado.", orderId);
-            }
-
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Falha ao finalizar MessageId={MessageId}.", messageId);
-            await tx.RollbackAsync(ct);
         }
     }
 
