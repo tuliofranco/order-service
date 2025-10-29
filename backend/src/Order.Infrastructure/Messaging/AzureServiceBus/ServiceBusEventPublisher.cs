@@ -1,7 +1,6 @@
 using Order.Core.Abstractions;
 using Order.Core.Events;
-using Order.Infrastructure.Messaging.Abstractions;
-namespace Order.Infrastructure.Messaging.AzureServiceBus;
+using Order.Infrastructure.Messaging;
 
 public sealed class ServiceBusEventPublisher : IEventPublisher
 {

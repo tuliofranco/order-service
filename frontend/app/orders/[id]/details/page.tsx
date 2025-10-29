@@ -12,9 +12,8 @@ export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  const { order, isLoading, error, mutate } = useOrder(id, { refreshMs: 4000 });
+  const { order, isLoading, error, mutate } = useOrder(id, { refreshMs: 1500 });
 
-  // Feedback visual de mudança de status (igual ao da lista, mas por item)
   useOrderStatusToast(order, {
     onlyWhenFinalized: false,
     dedupeMs: 1500,
