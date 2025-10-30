@@ -1,4 +1,3 @@
-// frontend/app/orders/[id]/details/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";

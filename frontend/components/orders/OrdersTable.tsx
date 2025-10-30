@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import type { OrderItem } from "@/types/order-item";
+import type { OrderItem } from "@/types/orders-list";
 
 type OrdersTableProps = {
   orders: OrderItem[];

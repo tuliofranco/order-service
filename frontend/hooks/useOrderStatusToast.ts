@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { OrderItem } from "@/types/order-item";
+import type { OrderItem } from "@/types/orders-list";
 import { useToast } from "@/hooks/use-toast";
 
 type Status = OrderItem["status"];

@@ -1,4 +1,5 @@
-using Order.Core.Enums;
+using Order.Core.Domain.Entities.Enums;
+
 
 namespace Order.Core.Domain.Entities;
 

@@ -1,6 +1,7 @@
 import useSWR from 'swr';
 import { ordersService } from '@/lib/services/orders';
-import type { OrderItem } from '@/types/order-item';
+import type { OrderItem } from '@/types/orders-list';
+
 
 export function useOrders() {
   const { data, error, isLoading, mutate } = useSWR<OrderItem[]>(
