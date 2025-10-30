@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Order.Core.Domain;
 using Order.Core.Domain.Repositories;
-using Order.Core.Enums;
+using Order.Core.Domain.Entities.Enums;
 using Order.Core.Domain.Entities;
 
 

@@ -6,8 +6,13 @@ using Order.Core.Domain.Repositories;
 using Order.Infrastructure.Messaging.Outbox;
 using Order.Infrastructure.Persistence;
 using Order.Core.Abstractions;
-namespace OrderService.Infrastructure;
 using Microsoft.Extensions.Logging;
+using Order.Infrastructure.Repositories;
+
+
+
+namespace OrderService.Infrastructure;
+
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
@@ -38,7 +43,9 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
         // ====== Repositório ======
-        services.AddScoped<IOrderRepository, EfOrderRepository>(); // único repositório padrão
+        services.AddScoped<IOrderRepository, EfOrderRepository>();
+
+        services.AddScoped<IOrderStatusHistoryRepository, EfOrderStatusHistoryRepository>();
 
         // ====== Outbox: Serializer, Store e Publisher ======
         services.AddSingleton<IEventSerializer, SystemTextJsonEventSerializer>();

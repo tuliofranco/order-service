@@ -27,7 +27,6 @@ public sealed class EfUnitOfWork : IUnitOfWork
 
             try
             {
-                // ---- LOGS DE DIAGNÓSTICO (ANTES DO SAVE) ----
                 var entries = _db.ChangeTracker.Entries().ToList();
                 var states = string.Join(",",
                     entries.Select(e => $"{e.Entity.GetType().Name}:{e.State}"));

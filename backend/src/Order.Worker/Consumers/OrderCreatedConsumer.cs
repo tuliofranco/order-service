@@ -12,10 +12,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Order.Infrastructure.Persistence;
-using orderEnum = Order.Core.Enums.OrderStatus;
+using orderEnum = Order.Core.Domain.Entities.Enums;
 using Order.Worker.Services;
 using Order.Core.Domain.Repositories;
 using Order.Core.Logging;
+using Order.Core.Domain.Entities;
 
 namespace Order.Worker.Consumers;
 
@@ -170,6 +171,8 @@ public sealed class OrderCreatedConsumer : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var db   = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
             var repo = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+            var historyRepo = scope.ServiceProvider.GetRequiredService<IOrderStatusHistoryRepository>();
+
 
             var changed = await repo.MarkProcessingIfPendingAsync(orderId, ct);
 
@@ -179,6 +182,17 @@ public sealed class OrderCreatedConsumer : BackgroundService
                     "event={event} fromStatus={from} toStatus={to}",
                     "OrderStatusProcessing", "Pendente", "Processando"
                 );
+
+                var historyProcessing = OrderStatusHistory.Create(
+                    orderId: orderId,
+                    fromStatus: orderEnum.OrderStatus.Pendente,
+                    toStatus: orderEnum.OrderStatus.Processando,
+                    correlationId: string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId!,
+                    eventId: messageId,
+                    source: "Worker",
+                    reason: "Atualizado para Processando pelo worker"
+                );
+                await historyRepo.AddAsync(historyProcessing, ct);
             }
             else
             {
@@ -220,14 +234,24 @@ public sealed class OrderCreatedConsumer : BackgroundService
                     return;
                 }
 
-                if (order.Status != orderEnum.Finalizado)
+                if (order.Status != orderEnum.OrderStatus.Finalizado)
                 {
                     var from = order.Status.ToString();
-                    order.Status = orderEnum.Finalizado;
+                    order.Status = orderEnum.OrderStatus.Finalizado;
                     _logger.LogInformation(
                         "event={event} fromStatus={from} toStatus={to}",
                         "OrderStatusFinalized", from, "Finalizado"
                     );
+                    var historyFinalized = OrderStatusHistory.Create(
+                        orderId: order.Id,
+                        fromStatus: orderEnum.OrderStatus.Processando,
+                        toStatus:   orderEnum.OrderStatus.Finalizado,
+                        correlationId: string.IsNullOrWhiteSpace(correlationId) ? order.Id.ToString() : correlationId!,
+                        eventId: messageId,
+                        source: "Worker",
+                        reason: "Atualizado para Finalizado pelo worker"
+                    );
+                    await historyRepo.AddAsync(historyFinalized, ct);
                 }
 
                 await db.SaveChangesAsync(ct);
