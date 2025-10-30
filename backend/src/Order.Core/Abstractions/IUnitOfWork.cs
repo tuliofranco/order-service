@@ -1,3 +1,4 @@
+
 namespace Order.Core.Abstractions;
 
 public interface IUnitOfWork

@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OrderEntity = Order.Core.Domain.Entities.Order;
-using Order.Core.Enums;
+using Order.Infrastructure.Persistence.Entities;
 
 namespace Order.Infrastructure.Persistence;
 
@@ -12,14 +12,13 @@ public class OrderDbContext : DbContext
     }
 
     public DbSet<OrderEntity> Orders => Set<OrderEntity>();
-   public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
-   public DbSet<OutboxMessage> OutboxMessage => Set<OutboxMessage>();
+    public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // ========== MAPEAMENTO DE Order ==========
         modelBuilder.Entity<OrderEntity>(cfg =>
         {
             cfg.ToTable("orders");
@@ -67,6 +66,34 @@ public class OrderDbContext : DbContext
             b.Property(x => x.ProcessedAtUtc)
              .HasColumnName("processed_at_utc")
              .IsRequired();
+        });
+
+        modelBuilder.Entity<OutboxMessage>(cfg =>
+        {
+            cfg.ToTable("outbox_messages");
+
+            cfg.HasKey(x => x.Id);
+
+            cfg.Property(x => x.Id)
+               .HasColumnName("id")
+               .IsRequired();
+
+            cfg.Property(x => x.Type)
+               .HasColumnName("type")
+               .HasMaxLength(256)
+               .IsRequired();
+
+            cfg.Property(x => x.Payload)
+               .HasColumnName("payload")
+               .HasColumnType("text")
+               .IsRequired();
+
+            cfg.Property(x => x.OccurredOnUtc)
+               .HasColumnName("occurred_on_utc")
+               .IsRequired();
+
+            cfg.HasIndex(x => x.OccurredOnUtc)
+               .HasDatabaseName("ix_outbox_occurred_on_utc");
         });
     }
 }

@@ -5,9 +5,7 @@ public sealed record OutboxRecord(
     Guid Id,
     string Type,
     string Payload,
-    DateTime OccurredOnUtc,
-    string? CorrelationId,
-    int Attempts
+    DateTime OccurredOnUtc
 );
 
 public enum PublishResult

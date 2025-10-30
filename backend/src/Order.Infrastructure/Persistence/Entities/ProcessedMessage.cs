@@ -1,4 +1,4 @@
-
+namespace Order.Infrastructure.Persistence.Entities;
 public sealed class ProcessedMessage
 {
     public string MessageId { get; set; } = default!;
