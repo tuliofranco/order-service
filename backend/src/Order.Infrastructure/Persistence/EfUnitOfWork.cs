@@ -1,4 +1,3 @@
-
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -28,26 +27,18 @@ public sealed class EfUnitOfWork : IUnitOfWork
             try
             {
                 var entries = _db.ChangeTracker.Entries().ToList();
-                var states = string.Join(",",
-                    entries.Select(e => $"{e.Entity.GetType().Name}:{e.State}"));
-
-                _logger.LogInformation(
-                    "UoW BEFORE | DbHash={DbHash} | Entries={Count} | States={States}",
-                    _db.GetHashCode(),
-                    entries.Count,
-                    states
-                );
+                _logger.LogInformation("UoW commit {Count} entries", entries.Count);
 
                 var rows = await _db.SaveChangesAsync(ct);
 
-                _logger.LogInformation("UoW AFTER  | rows={Rows}", rows);
-
                 await tx.CommitAsync(ct);
+
+                _logger.LogInformation("UoW commit ok ({Rows} rows)", rows);
                 return rows;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "UoW ERROR  | rollback triggered");
+                _logger.LogError(ex, "UoW commit failed, rollback");
                 await tx.RollbackAsync(ct);
                 throw;
             }

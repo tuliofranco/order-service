@@ -6,20 +6,23 @@ using Order.Core.Events;
 using Order.Core.Domain.Validation;
 using Order.Core.Domain.Entities.Enums;
 using Order.Core.Domain.Entities;
-namespace Order.Core.Services;
+using Microsoft.Extensions.Logging;
 
+namespace Order.Core.Services;
 
 public class OrderService(
     IOrderRepository repo,
     IUnitOfWork uow,
     IOrderStatusHistoryRepository historyRepo,
-    IOutboxStore outbox
+    IOutboxStore outbox,
+    ILogger<OrderService> logger
 ) : IOrderService
 {
     private readonly IOrderRepository _repo = repo;
     private readonly IUnitOfWork _uow = uow;
     private readonly IOrderStatusHistoryRepository _historyRepo = historyRepo;
     private readonly IOutboxStore _outbox = outbox;
+    private readonly ILogger<OrderService> _logger = logger;
 
     public async Task<OrderEntity> CreateOrderAsync(
         string clienteNome,
@@ -28,50 +31,60 @@ public class OrderService(
         CancellationToken ct = default)
     {
         var order = OrderEntity.Create(clienteNome, produto, valor);
-        OrderStatusTransitionValidator.EnsureValid(null, OrderStatus.Pendente);
+        var correlationId = order.Id.ToString();
 
-        var integrationEvent = new OrderCreatedIntegrationEvent(
-            Id: Guid.NewGuid(),
-            OccurredOnUtc: DateTime.UtcNow,
-            Type: "OrderCreated.v1",
-            CorrelationId: order.Id.ToString(),
-            CausationId: null,
-            OrderId: order.Id,
-            Cliente: clienteNome,
-            Produto: produto,
-            Valor: valor
-        );
+        using (_logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["orderId"] = order.Id,
+            ["correlationId"] = correlationId
+        }))
+        {
+            _logger.LogInformation("CreateOrder start");
 
-        await _repo.AddAsync(order, ct);
+            OrderStatusTransitionValidator.EnsureValid(null, OrderStatus.Pendente);
 
-        var historyEntry = OrderStatusHistory.Create(
-            orderId: order.Id,
-            fromStatus: null,
-            toStatus: OrderStatus.Pendente,
-            correlationId: order.Id.ToString(),
-            eventId: integrationEvent.Id.ToString(), 
-            source: "Api",
-            reason: "Pedido criado");
+            var integrationEvent = new OrderCreatedIntegrationEvent(
+                Id: Guid.NewGuid(),
+                OccurredOnUtc: DateTime.UtcNow,
+                Type: "OrderCreated", // simples pro desafio ✅
+                CorrelationId: correlationId,
+                CausationId: null,
+                OrderId: order.Id,
+                Cliente: clienteNome,
+                Produto: produto,
+                Valor: valor
+            );
 
-        await _historyRepo.AddAsync(historyEntry, ct);
+            await _repo.AddAsync(order, ct);
 
+            var historyEntry = OrderStatusHistory.Create(
+                orderId: order.Id,
+                fromStatus: null,
+                toStatus: OrderStatus.Pendente,
+                correlationId: correlationId,
+                eventId: integrationEvent.Id.ToString(),
+                source: "Api",
+                reason: "Pedido criado"
+            );
 
+            await _historyRepo.AddAsync(historyEntry, ct);
 
-        await _outbox.AppendAsync(integrationEvent, ct);
+            _logger.LogInformation("Outbox enqueue {EventId}", integrationEvent.Id);
+            await _outbox.AppendAsync(integrationEvent, ct);
 
-        await _uow.CommitAsync(ct);
+            await _uow.CommitAsync(ct);
 
-        return order;
+            _logger.LogInformation("CreateOrder commit ok");
+
+            return order;
+        }
     }
+
     public Task<IReadOnlyList<OrderEntity>> GetAllAsync(CancellationToken ct = default)
-    {
-        return _repo.GetAllAsync(ct);
-    }
+        => _repo.GetAllAsync(ct);
 
     public Task<OrderEntity?> GetByIdAsync(Guid id, CancellationToken ct = default)
-    {
-        return _repo.GetByIdAsync(id, ct);
-    }
+        => _repo.GetByIdAsync(id, ct);
 
     public Task<IReadOnlyList<OrderStatusHistory>> GetHistoryByOrderIdAsync(
         Guid orderId,
