@@ -66,7 +66,6 @@ public class OrderCreatedConsumerTests
 
         var consumer = new OrderCreatedConsumer(
             logger,
-            fakeClient,
             sp.GetRequiredService<IServiceScopeFactory>(),
             queueName: "orders"
         );
@@ -137,7 +136,6 @@ public class OrderCreatedConsumerTests
 
         var consumer = new OrderCreatedConsumer(
             logger,
-            fakeClient,
             sp.GetRequiredService<IServiceScopeFactory>(),
             queueName: "orders"
         );

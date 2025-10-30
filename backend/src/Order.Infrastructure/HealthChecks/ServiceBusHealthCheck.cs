@@ -1,35 +1,53 @@
-#nullable enable
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Configuration;  
+using Microsoft.Extensions.Logging;
 
-namespace Order.Infrastructure.HealthChecks;
-
-public sealed class ServiceBusHealthCheck : IHealthCheck
+namespace Order.Infrastructure.HealthChecks
 {
-    private readonly ServiceBusClient _client;
-    private readonly string _queue;
-
-    public ServiceBusHealthCheck(ServiceBusClient client, IConfiguration cfg)
+    public sealed class ServiceBusQueueHealthCheck : IHealthCheck
     {
-        _client = client;
-        _queue = cfg["ServiceBus:QueueName"] ?? "orders";
-    }
+        private readonly ServiceBusClient _client;
+        private readonly ILogger<ServiceBusQueueHealthCheck> _logger;
 
-    public async Task<HealthCheckResult> CheckHealthAsync(
-        HealthCheckContext context,
-        CancellationToken cancellationToken = default)
-    {
-        try
+        // nome da fila que seu worker/producer usa
+        private const string QueueName = "orders";
+
+        public ServiceBusQueueHealthCheck(
+            ServiceBusClient client,
+            ILogger<ServiceBusQueueHealthCheck> logger)
         {
-            // Verifica se conseguimos criar um sender (sem enviar nada)
-            await using var sender = _client.CreateSender(_queue);
-            _ = sender; // apenas para satisfazer o compilador
-            return HealthCheckResult.Healthy($"ServiceBus OK (queue: {_queue})");
+            _client = client;
+            _logger = logger;
         }
-        catch (Exception ex)
+
+        public async Task<HealthCheckResult> CheckHealthAsync(
+            HealthCheckContext context,
+            CancellationToken cancellationToken = default)
         {
-            return HealthCheckResult.Unhealthy("ServiceBus indisponível", ex);
+            try
+            {
+                // tenta criar um sender/receiver só pra validar que consegue falar com a fila
+                var sender = _client.CreateSender(QueueName);
+                // opcional: você pode tentar acessar propriedades da fila via ManagementClient,
+                // mas o SDK novo não expõe mais tão fácil sem permissões especiais.
+                // Só de conseguir criar o sender sem exception de credencial/host já é sinal de vida.
+                await sender.CloseAsync(cancellationToken);
+
+                _logger.LogInformation("Service Bus OK para fila {QueueName}", QueueName);
+
+                return HealthCheckResult.Healthy($"Service Bus reachable, queue '{QueueName}' usable.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falha ao validar Service Bus para fila {QueueName}", QueueName);
+                return HealthCheckResult.Unhealthy(
+                    description: $"Service Bus unreachable for queue '{QueueName}'",
+                    exception: ex
+                );
+            }
         }
     }
 }

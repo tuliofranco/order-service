@@ -1,7 +1,9 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
@@ -19,30 +21,38 @@ namespace Order.Worker.Consumers;
 
 public sealed class OrderCreatedConsumer : BackgroundService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        AllowTrailingCommas = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never
+    };
+
     private readonly ILogger<OrderCreatedConsumer> _logger;
-    private readonly ServiceBusClient _busClient;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly string _queueName;
     private ServiceBusProcessor? _processor;
 
-
     public OrderCreatedConsumer(
         ILogger<OrderCreatedConsumer> logger,
-        ServiceBusClient busClient,
         IServiceScopeFactory scopeFactory,
-        string queueName)
+        string? queueName)
     {
         _logger = logger;
-        _busClient = busClient;
         _scopeFactory = scopeFactory;
-        _queueName = queueName;
+        _queueName = string.IsNullOrWhiteSpace(queueName)
+            ? throw new ArgumentException("ASB entity name (queue/topic) não configurado. Defina ASB_ENTITY.", nameof(queueName))
+            : queueName;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Iniciando consumidor da fila {Queue}...", _queueName);
+        _logger.LogInformation("Iniciando consumidor da entidade ASB {Queue}...", _queueName);
 
-        _processor = _busClient.CreateProcessor(_queueName, new ServiceBusProcessorOptions
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var busClient = scope.ServiceProvider.GetRequiredService<ServiceBusClient>();
+
+        _processor = busClient.CreateProcessor(_queueName, new ServiceBusProcessorOptions
         {
             MaxConcurrentCalls = 1,
             AutoCompleteMessages = false
@@ -53,13 +63,21 @@ public sealed class OrderCreatedConsumer : BackgroundService
 
         await _processor.StartProcessingAsync(stoppingToken);
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            await Task.Delay(1000, stoppingToken);
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(1000, stoppingToken);
+            }
         }
+        finally
+        {
+            _logger.LogInformation("Parando consumidor da entidade {Queue}...", _queueName);
+            try { await _processor.StopProcessingAsync(stoppingToken); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Falha ao parar o ServiceBusProcessor."); }
 
-        _logger.LogInformation("Parando consumidor da fila {Queue}...", _queueName);
-        await _processor.StopProcessingAsync(stoppingToken);
+            await _processor.DisposeAsync();
+        }
     }
 
     private async Task HandleMessageAsync(ProcessMessageEventArgs args)
@@ -67,48 +85,50 @@ public sealed class OrderCreatedConsumer : BackgroundService
         var correlationId = args.Message.CorrelationId;
         var messageId     = args.Message.MessageId;
         var body          = args.Message.Body.ToString();
+
         using (_logger.BeginScope(new Dictionary<string, object?>
         {
             ["component"] = "Worker",
             ["event"] = "MessageReceived",
-            ["correlationId"] = correlationId
+            ["correlationId"] = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId,
+            ["messageId"] = messageId
         }))
         {
             _logger.LogInformation(
-                    "Mensagem recebida. CorrelationId={CorrelationId} MessageId={MessageId} Body={Body}",
-                    correlationId, messageId, body
-                );
+                "Mensagem recebida. CorrelationId={CorrelationId} MessageId={MessageId} Body={Body}",
+                correlationId, messageId, body
+            );
 
             OrderCreatedPayload? payload = null;
             try
             {
-                payload = JsonSerializer.Deserialize<OrderCreatedPayload>(body);
+                payload = JsonSerializer.Deserialize<OrderCreatedPayload>(body, JsonOptions);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Falha ao desserializar payload da mensagem");
+                _logger.LogWarning(ex, "Falha ao desserializar payload para {Type}.", nameof(OrderCreatedPayload));
             }
 
             if (payload is null || payload.OrderId == Guid.Empty)
             {
-                _logger.LogWarning("Payload inválido. DLQ.");
+                _logger.LogWarning("Payload inválido (OrderId vazio). Enviando para DLQ.");
                 await args.DeadLetterMessageAsync(
                     args.Message, "InvalidPayload",
                     "Body não desserializou corretamente para OrderId."
                 );
                 return;
             }
+
             try
             {
                 await ProcessOrderAsync(payload.OrderId, messageId, correlationId, args.CancellationToken);
                 await args.CompleteMessageAsync(args.Message, args.CancellationToken);
-                _logger.LogInformation("Processamento concluído. MessageId={MessageId}", messageId);
+                _logger.LogInformation("Processamento concluído. MessageId={MessageId} OrderId={OrderId}", messageId, payload.OrderId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Falha ao processar OrderId={OrderId} MessageId={MessageId}", payload.OrderId, messageId);
 
-                // Política simples de reentrega/DLQ
                 if (args.Message.DeliveryCount >= 5)
                 {
                     await args.DeadLetterMessageAsync(
@@ -137,29 +157,21 @@ public sealed class OrderCreatedConsumer : BackgroundService
         return Task.CompletedTask;
     }
 
-    private sealed class OrderCreatedPayload
-    {
-        public Guid OrderId { get; set; }
-    }
-
-
     public async Task ProcessOrderAsync(Guid orderId, string messageId, string? correlationId, CancellationToken ct)
     {
         using (_logger.BeginScope(new Dictionary<string, object?>
         {
             ["orderId"] = orderId.ToString(),
             ["correlationId"] = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId,
-            ["component"] = "Worker",            // redundante mas útil pra filtros
-            [Correlation.Key] = orderId.ToString()   // mantém tua chave padrão "OrderId"
+            ["component"] = "Worker",
+            [Correlation.Key] = orderId.ToString()
         }))
         {
             using var scope = _scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+            var db   = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
             var repo = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
 
-            // status -> Processando
             var changed = await repo.MarkProcessingIfPendingAsync(orderId, ct);
-            
 
             if (changed)
             {
@@ -180,18 +192,18 @@ public sealed class OrderCreatedConsumer : BackgroundService
                 _logger.LogInformation("Pedido {OrderId} já não está Pendente (ignorado).", orderId);
             }
 
+            // Simulação de trabalho
             await Task.Delay(TimeSpan.FromSeconds(5), ct);
 
             await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-
             try
             {
                 var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
-                INSERT INTO processed_messages (message_id, processed_at_utc)
-                VALUES ({messageId}, {DateTime.UtcNow})
-                ON CONFLICT (message_id) DO NOTHING;
-            ", ct);
+                    INSERT INTO processed_messages (message_id, processed_at_utc)
+                    VALUES ({messageId}, {DateTime.UtcNow})
+                    ON CONFLICT (message_id) DO NOTHING;
+                ", ct);
 
                 if (rows == 0)
                 {
@@ -213,9 +225,9 @@ public sealed class OrderCreatedConsumer : BackgroundService
                     var from = order.Status.ToString();
                     order.Status = orderEnum.Finalizado;
                     _logger.LogInformation(
-                    "event={event} fromStatus={from} toStatus={to}",
-                    "OrderStatusFinalized", from, "Finalizado"
-                );
+                        "event={event} fromStatus={from} toStatus={to}",
+                        "OrderStatusFinalized", from, "Finalizado"
+                    );
                 }
 
                 await db.SaveChangesAsync(ct);
@@ -228,5 +240,4 @@ public sealed class OrderCreatedConsumer : BackgroundService
             }
         }
     }
-
 }
