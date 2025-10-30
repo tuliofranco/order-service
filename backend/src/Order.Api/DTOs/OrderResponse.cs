@@ -1,10 +1,7 @@
 using System;
-
+using OrderEntity = Order.Core.Domain.Entities.Order;
 namespace Order.Api.DTOs;
 
-/// <summary>
-/// Representa um pedido retornado pela API.
-/// </summary>
 public class OrderResponse
 {
     public Guid Id { get; set; }
@@ -19,7 +16,7 @@ public class OrderResponse
 
     public DateTime data_criacao { get; set; }
 
-    public static OrderResponse FromDomain(Order.Core.Domain.Entities.Order order)
+    public static OrderResponse FromDomain(OrderEntity order)
     {
         return new OrderResponse
         {

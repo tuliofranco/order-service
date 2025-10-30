@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ordersService } from "@/lib/services/orders";
 import type { OrderCreate } from "@/types/order-create";
-import type { OrderItem } from "@/types/order-item";
+import type { OrderItem } from "@/types/orders-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

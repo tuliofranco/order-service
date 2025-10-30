@@ -80,15 +80,17 @@ public class OrdersController : ControllerBase
 
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(OrderDetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var order = await _orderService.GetByIdAsync(id, ct);
-
         if (order is null)
             return NotFound();
 
-        return Ok(OrderResponse.FromDomain(order));
+        var history = await _orderService.GetHistoryByOrderIdAsync(id, ct);
+
+        var dto = OrderDetailsMapper.ToResponse(order, history);
+        return Ok(dto);
     }
 }
