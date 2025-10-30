@@ -48,7 +48,7 @@ public sealed class OrderCreatedConsumer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Iniciando consumidor da entidade ASB {Queue}...", _queueName);
+        _logger.LogInformation("Worker iniciado. Consumindo fila {Queue} do Service Bus.", _queueName);
 
         await using var scope = _scopeFactory.CreateAsyncScope();
         var busClient = scope.ServiceProvider.GetRequiredService<ServiceBusClient>();
@@ -73,9 +73,16 @@ public sealed class OrderCreatedConsumer : BackgroundService
         }
         finally
         {
-            _logger.LogInformation("Parando consumidor da entidade {Queue}...", _queueName);
-            try { await _processor.StopProcessingAsync(stoppingToken); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Falha ao parar o ServiceBusProcessor."); }
+            _logger.LogInformation("Encerrando leitura da fila {Queue}.", _queueName);
+
+            try
+            {
+                await _processor.StopProcessingAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao parar o processor do Service Bus.");
+            }
 
             await _processor.DisposeAsync();
         }
@@ -90,14 +97,15 @@ public sealed class OrderCreatedConsumer : BackgroundService
         using (_logger.BeginScope(new Dictionary<string, object?>
         {
             ["component"] = "Worker",
-            ["event"] = "MessageReceived",
+            ["evento"] = "MensagemRecebida",
             ["correlationId"] = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId,
             ["messageId"] = messageId
         }))
         {
             _logger.LogInformation(
-                "Mensagem recebida. CorrelationId={CorrelationId} MessageId={MessageId} Body={Body}",
-                correlationId, messageId, body
+                "Mensagem recebida. CorrelationId={CorrelationId} MessageId={MessageId}",
+                correlationId,
+                messageId
             );
 
             OrderCreatedPayload? payload = null;
@@ -107,14 +115,15 @@ public sealed class OrderCreatedConsumer : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Falha ao desserializar payload para {Type}.", nameof(OrderCreatedPayload));
+                _logger.LogWarning(ex, "Erro ao desserializar o payload da mensagem.");
             }
 
             if (payload is null || payload.OrderId == Guid.Empty)
             {
-                _logger.LogWarning("Payload inválido (OrderId vazio). Enviando para DLQ.");
+                _logger.LogWarning("Payload inválido: OrderId vazio. Enviando para DLQ.");
                 await args.DeadLetterMessageAsync(
-                    args.Message, "InvalidPayload",
+                    args.Message,
+                    "InvalidPayload",
                     "Body não desserializou corretamente para OrderId."
                 );
                 return;
@@ -124,11 +133,21 @@ public sealed class OrderCreatedConsumer : BackgroundService
             {
                 await ProcessOrderAsync(payload.OrderId, messageId, correlationId, args.CancellationToken);
                 await args.CompleteMessageAsync(args.Message, args.CancellationToken);
-                _logger.LogInformation("Processamento concluído. MessageId={MessageId} OrderId={OrderId}", messageId, payload.OrderId);
+
+                _logger.LogInformation(
+                    "Processamento concluído. OrderId={OrderId} MessageId={MessageId}",
+                    payload.OrderId,
+                    messageId
+                );
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Falha ao processar OrderId={OrderId} MessageId={MessageId}", payload.OrderId, messageId);
+                _logger.LogError(
+                    ex,
+                    "Erro ao processar pedido. OrderId={OrderId} MessageId={MessageId}",
+                    payload.OrderId,
+                    messageId
+                );
 
                 if (args.Message.DeliveryCount >= 5)
                 {
@@ -151,7 +170,7 @@ public sealed class OrderCreatedConsumer : BackgroundService
     {
         _logger.LogError(
             args.Exception,
-            "Erro no Service Bus. EntityPath={EntityPath} Source={ErrorSource}",
+            "Erro recebido do Service Bus. EntityPath={EntityPath} Source={ErrorSource}",
             args.EntityPath,
             args.ErrorSource
         );
@@ -162,25 +181,26 @@ public sealed class OrderCreatedConsumer : BackgroundService
     {
         using (_logger.BeginScope(new Dictionary<string, object?>
         {
-            ["orderId"] = orderId.ToString(),
-            ["correlationId"] = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId,
             ["component"] = "Worker",
-            [Correlation.Key] = orderId.ToString()
+            ["evento"] = "ProcessarPedido",
+            ["orderId"] = orderId.ToString(),
+            ["correlationId"] = string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId,
+            [Correlation.Key] = string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId
         }))
         {
             using var scope = _scopeFactory.CreateScope();
-            var db   = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
-            var repo = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+            var db          = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+            var repo        = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
             var historyRepo = scope.ServiceProvider.GetRequiredService<IOrderStatusHistoryRepository>();
 
+            // 1. Atualiza para Processando (se ainda estava Pendente)
+            var mudouParaProcessando = await repo.MarkProcessingIfPendingAsync(orderId, ct);
 
-            var changed = await repo.MarkProcessingIfPendingAsync(orderId, ct);
-
-            if (changed)
+            if (mudouParaProcessando)
             {
                 _logger.LogInformation(
-                    "event={event} fromStatus={from} toStatus={to}",
-                    "OrderStatusProcessing", "Pendente", "Processando"
+                    "Pedido {OrderId} marcado como Processando.",
+                    orderId
                 );
 
                 var historyProcessing = OrderStatusHistory.Create(
@@ -190,8 +210,9 @@ public sealed class OrderCreatedConsumer : BackgroundService
                     correlationId: string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId!,
                     eventId: messageId,
                     source: "Worker",
-                    reason: "Atualizado para Processando pelo worker"
+                    reason: "Status alterado para Processando"
                 );
+
                 await historyRepo.AddAsync(historyProcessing, ct);
             }
             else
@@ -203,16 +224,21 @@ public sealed class OrderCreatedConsumer : BackgroundService
                     return;
                 }
 
-                _logger.LogInformation("Pedido {OrderId} já não está Pendente (ignorado).", orderId);
+                _logger.LogInformation(
+                    "Pedido {OrderId} já não estava Pendente. Nenhuma alteração.",
+                    orderId
+                );
             }
 
-            // Simulação de trabalho
+            // 2. Simula trabalho pesado
             await Task.Delay(TimeSpan.FromSeconds(5), ct);
 
+            // 3. Transação final: marcar como Finalizado e registrar idempotência
             await using var tx = await db.Database.BeginTransactionAsync(ct);
 
             try
             {
+                // Tabela processed_messages garante idempotência
                 var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
                     INSERT INTO processed_messages (message_id, processed_at_utc)
                     VALUES ({messageId}, {DateTime.UtcNow})
@@ -221,8 +247,12 @@ public sealed class OrderCreatedConsumer : BackgroundService
 
                 if (rows == 0)
                 {
+                    // Já processado antes
                     await tx.RollbackAsync(ct);
-                    _logger.LogInformation("Duplicata detectada. MessageId={MessageId}. Ignorando.", messageId);
+                    _logger.LogInformation(
+                        "Mensagem já processada anteriormente. MessageId={MessageId}",
+                        messageId
+                    );
                     return;
                 }
 
@@ -230,18 +260,22 @@ public sealed class OrderCreatedConsumer : BackgroundService
                 if (order is null)
                 {
                     await tx.RollbackAsync(ct);
-                    _logger.LogWarning("Pedido {OrderId} não encontrado na etapa final.", orderId);
+                    _logger.LogWarning(
+                        "Pedido {OrderId} não encontrado para finalizar.",
+                        orderId
+                    );
                     return;
                 }
 
                 if (order.Status != orderEnum.OrderStatus.Finalizado)
                 {
-                    var from = order.Status.ToString();
                     order.Status = orderEnum.OrderStatus.Finalizado;
+
                     _logger.LogInformation(
-                        "event={event} fromStatus={from} toStatus={to}",
-                        "OrderStatusFinalized", from, "Finalizado"
+                        "Pedido {OrderId} marcado como Finalizado.",
+                        orderId
                     );
+
                     var historyFinalized = OrderStatusHistory.Create(
                         orderId: order.Id,
                         fromStatus: orderEnum.OrderStatus.Processando,
@@ -249,8 +283,9 @@ public sealed class OrderCreatedConsumer : BackgroundService
                         correlationId: string.IsNullOrWhiteSpace(correlationId) ? order.Id.ToString() : correlationId!,
                         eventId: messageId,
                         source: "Worker",
-                        reason: "Atualizado para Finalizado pelo worker"
+                        reason: "Status alterado para Finalizado"
                     );
+
                     await historyRepo.AddAsync(historyFinalized, ct);
                 }
 
@@ -259,7 +294,13 @@ public sealed class OrderCreatedConsumer : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Falha ao finalizar MessageId={MessageId}.", messageId);
+                _logger.LogError(
+                    ex,
+                    "Erro ao finalizar pedido {OrderId} (MessageId={MessageId}).",
+                    orderId,
+                    messageId
+                );
+
                 await tx.RollbackAsync(ct);
             }
         }

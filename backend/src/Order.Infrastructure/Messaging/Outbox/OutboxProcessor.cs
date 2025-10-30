@@ -1,4 +1,3 @@
-
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Order.Core.Abstractions.Messaging.Outbox;
@@ -34,16 +33,13 @@ public sealed class OutboxProcessor : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("OutboxProcessor iniciado. Lote={BatchSize}", _batchSize);
-        
+        _logger.LogInformation("OutboxProcessor iniciado (tamanho do lote = {Batch})", _batchSize);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 var batch = await _store.FetchPendingBatchAsync(_batchSize, stoppingToken);
-                _logger.LogInformation("Processor batch size = {Count}", batch.Count);
-
 
                 if (batch.Count == 0)
                 {
@@ -53,45 +49,58 @@ public sealed class OutboxProcessor : BackgroundService
 
                 foreach (var record in batch)
                 {
-                    if (stoppingToken.IsCancellationRequested) break;
+                    if (stoppingToken.IsCancellationRequested)
+                        break;
 
-                    var result = await _publisher.PublishAsync(record, stoppingToken);
-
-                    switch (result)
+                    using (_logger.BeginScope(new Dictionary<string, object?>
                     {
-                        case PublishResult.Success:
-                            await _store.MarkPublishedAsync(record.Id, stoppingToken);
-                            _logger.LogDebug("Outbox {OutboxId} publicado e removido.", record.Id);
-                            break;
+                        ["outboxId"] = record.Id,
+                        ["eventType"] = record.Type
+                    }))
+                    {
+                        _logger.LogInformation("Publicando mensagem do outbox");
 
-                        case PublishResult.RetryableFailure:
-                            // Modelo mínimo: manter registro para próxima tentativa.
-                            _logger.LogWarning("Falha temporária ao publicar Outbox {OutboxId}. Tentará novamente.", record.Id);
-                            // Pequeno atraso para evitar loop quente
-                            await Task.Delay(_errorDelay, stoppingToken);
-                            break;
+                        PublishResult result;
+                        try
+                        {
+                            result = await _publisher.PublishAsync(record, stoppingToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Erro inesperado durante publish");
+                            result = PublishResult.RetryableFailure;
+                        }
 
-                        case PublishResult.PermanentFailure:
-                            // Modelo mínimo: não há coluna de erro; mantemos registro
-                            // para análise manual ou futura extensão do schema.
-                            _logger.LogError("Falha permanente ao publicar Outbox {OutboxId}. Mantendo registro para intervenção.", record.Id);
-                            await Task.Delay(_errorDelay, stoppingToken);
-                            break;
+                        switch (result)
+                        {
+                            case PublishResult.Success:
+                                await _store.MarkPublishedAsync(record.Id, stoppingToken);
+                                _logger.LogInformation("Mensagem publicada e removida do outbox");
+                                break;
+
+                            case PublishResult.RetryableFailure:
+                                _logger.LogWarning("Falha temporária ao publicar (vai tentar novamente)");
+                                await Task.Delay(_errorDelay, stoppingToken);
+                                break;
+
+                            case PublishResult.PermanentFailure:
+                                _logger.LogError("Falha permanente ao publicar (mensagem mantida para análise)");
+                                await Task.Delay(_errorDelay, stoppingToken);
+                                break;
+                        }
                     }
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                // Encerrando graciosamente
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro inesperado no loop do OutboxProcessor.");
-                // Pequeno backoff global antes do próximo ciclo
+                _logger.LogError(ex, "Erro no loop principal do OutboxProcessor");
                 await Task.Delay(_errorDelay, stoppingToken);
             }
         }
 
-        _logger.LogInformation("OutboxProcessor finalizado.");
+        _logger.LogInformation("OutboxProcessor encerrando");
     }
 }

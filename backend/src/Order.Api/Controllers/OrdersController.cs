@@ -1,17 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Order.Api.DTOs;
 using Order.Core.Services;
-using System.Net;
-using Order.Core.Logging;
 using Microsoft.Extensions.Logging;
-
-
+using Order.Core.Logging;
 
 namespace Order.Api.Controllers;
 
-/// <summary>
-/// CRUD básico de pedidos.
-/// </summary>
 [ApiController]
 [Route("orders")]
 public class OrdersController : ControllerBase
@@ -35,23 +29,19 @@ public class OrdersController : ControllerBase
             request.Valor,
             ct
         );
-        var correlationId = created.Id.ToString();
-        using (_logger.BeginScope(new Dictionary<string, object>
-        {
-            ["component"] = "API",
-            ["event"] = "OrderCreated",
-            ["orderId"] = correlationId,
-            ["correlationId"] = correlationId,
-            [Correlation.Key] = correlationId,
-        }))
-        { }
-        _logger.LogInformation(
-                "Order created by {Cliente} for {Produto} value {Valor}",
-                request.ClienteNome, request.Produto, request.Valor
-        );
 
+        var correlationId = created.Id.ToString();
         Response.Headers["X-Correlation-Id"] = correlationId;
-        
+
+        using (_logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["orderId"] = created.Id,
+            ["correlationId"] = correlationId
+        }))
+        {
+            _logger.LogInformation("Order created");
+        }
+
         var response = OrderResponse.FromDomain(created);
 
         return CreatedAtAction(
@@ -61,23 +51,17 @@ public class OrdersController : ControllerBase
         );
     }
 
-    /// <summary>
-    /// Lista todos os pedidos ordenados pela data de criação (mais recente primeiro).
-    /// </summary>
-    /// <response code="200">Lista encontrada</response>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<OrderResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
         var orders = await _orderService.GetAllAsync(ct);
+        var response = orders.Select(OrderResponse.FromDomain).ToList();
 
-        var response = orders
-            .Select(OrderResponse.FromDomain)
-            .ToList();
+        _logger.LogInformation("GetAll {Count} orders", response.Count);
 
         return Ok(response);
     }
-
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(OrderDetailsResponse), StatusCodes.Status200OK)]
@@ -86,11 +70,23 @@ public class OrdersController : ControllerBase
     {
         var order = await _orderService.GetByIdAsync(id, ct);
         if (order is null)
+        {
+            _logger.LogWarning("Order {OrderId} not found", id);
             return NotFound();
+        }
 
         var history = await _orderService.GetHistoryByOrderIdAsync(id, ct);
 
+        using (_logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["orderId"] = id
+        }))
+        {
+            _logger.LogInformation("GetById historyCount={Count}", history.Count);
+        }
+
         var dto = OrderDetailsMapper.ToResponse(order, history);
+        Response.Headers["X-Correlation-Id"] = id.ToString();
         return Ok(dto);
     }
 }

@@ -1,5 +1,5 @@
-// backend/src/Order.Infrastructure/Persistence/EfOrderRepository.cs
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using OrderEntity = Order.Core.Domain.Entities.Order;
 using Order.Core.Domain.Repositories;
 
@@ -8,10 +8,12 @@ namespace Order.Infrastructure.Persistence;
 public class EfOrderRepository : IOrderRepository
 {
     private readonly OrderDbContext _db;
+    private readonly ILogger<EfOrderRepository> _logger;
 
-    public EfOrderRepository(OrderDbContext db)
+    public EfOrderRepository(OrderDbContext db, ILogger<EfOrderRepository> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     public Task<OrderEntity?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
@@ -25,14 +27,17 @@ public class EfOrderRepository : IOrderRepository
 
     public async Task AddAsync(OrderEntity order, CancellationToken ct = default)
     {
+        _logger.LogInformation("Insert order {OrderId}", order.Id);
         await _db.Orders.AddAsync(order, ct);
     }
 
     public Task UpdateAsync(OrderEntity order, CancellationToken ct = default)
     {
+        _logger.LogInformation("Update order {OrderId}", order.Id);
         _db.Orders.Update(order);
         return Task.CompletedTask;
     }
+
     public async Task<bool> MarkProcessingIfPendingAsync(Guid orderId, CancellationToken ct = default)
     {
         var rows = await _db.Database.ExecuteSqlInterpolatedAsync($@"
@@ -42,7 +47,14 @@ public class EfOrderRepository : IOrderRepository
               AND status = {"Pendente"};
         ", ct);
 
-        return rows == 1;
+        if (rows == 1)
+        {
+            _logger.LogInformation("Order {OrderId} set to Processando", orderId);
+            return true;
+        }
+
+        _logger.LogInformation("Order {OrderId} not moved to Processando", orderId);
+        return false;
     }
 
     public Task<bool> ExistsAsync(Guid orderId, CancellationToken ct = default) =>

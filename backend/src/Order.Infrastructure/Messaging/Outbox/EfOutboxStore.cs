@@ -11,7 +11,7 @@ public class EfOutboxStore : IOutboxStore
 {
     private readonly OrderDbContext _db;
     private readonly IEventSerializer _serializer;
-    private ILogger<EfOutboxStore> _logger;
+    private readonly ILogger<EfOutboxStore> _logger;
 
     public EfOutboxStore(OrderDbContext db, IEventSerializer serializer, ILogger<EfOutboxStore> logger)
     {
@@ -23,8 +23,8 @@ public class EfOutboxStore : IOutboxStore
     public async Task AppendAsync(IIntegrationEvent @event, CancellationToken ct = default)
     {
         var payload = _serializer.Serialize(@event);
-        _logger.LogInformation("EfOutboxStore.AppendAsync called: {Type}", @event.Type);
 
+        _logger.LogInformation("Outbox append {OutboxId} {Type}", @event.Id, @event.Type);
 
         var entity = new OutboxMessage
         {
@@ -36,19 +36,20 @@ public class EfOutboxStore : IOutboxStore
 
         await _db.OutboxMessages.AddAsync(entity, ct);
     }
+
     public async Task<IReadOnlyList<OutboxRecord>> FetchPendingBatchAsync(
         int maxBatchSize,
         CancellationToken ct = default)
     {
-        _logger.LogInformation("Outbox FETCH start (max={Max})", maxBatchSize);
         var rows = await _db.OutboxMessages
             .AsNoTracking()
             .OrderBy(x => x.OccurredOnUtc)
             .Take(maxBatchSize)
             .ToListAsync(ct);
-        _logger.LogInformation("Outbox FETCH rows={Count}", rows.Count);
 
-        var result = rows
+        _logger.LogInformation("Outbox fetch {Count} pending", rows.Count);
+
+        return rows
             .Select(x => new OutboxRecord(
                 x.Id,
                 x.Type,
@@ -56,19 +57,20 @@ public class EfOutboxStore : IOutboxStore
                 x.OccurredOnUtc
             ))
             .ToList();
-
-        return result;
     }
 
     public async Task MarkPublishedAsync(Guid outboxId, CancellationToken ct = default)
     {
+        _logger.LogInformation("Outbox delete {OutboxId}", outboxId);
+
         await _db.OutboxMessages
             .Where(x => x.Id == outboxId)
             .ExecuteDeleteAsync(ct);
     }
+
     public Task MarkFailedAsync(Guid outboxId, string error, CancellationToken ct = default)
     {
+        _logger.LogWarning("Outbox mark failed {OutboxId}: {Error}", outboxId, error);
         return Task.CompletedTask;
     }
-
 }

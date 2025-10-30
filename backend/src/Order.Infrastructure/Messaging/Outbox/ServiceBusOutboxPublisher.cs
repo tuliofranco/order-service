@@ -36,23 +36,44 @@ public sealed class ServiceBusOutboxPublisher : IOutboxPublisher
         {
             var sender = _client.CreateSender(_entityName);
             await sender.SendMessageAsync(message, ct);
+
+            _logger.LogInformation(
+                "Mensagem publicada no Service Bus. OutboxId={OutboxId} Tipo={Type}",
+                record.Id,
+                record.Type
+            );
+
             return PublishResult.Success;
         }
         catch (ServiceBusException sbEx) when (IsPermanent(sbEx))
         {
-            _logger.LogWarning($"[OutboxPublisher] Permanent failure: {sbEx.Reason} - {sbEx.Message}");
+            _logger.LogWarning(
+                "Falha permanente ao publicar no Service Bus. Motivo={Reason} Erro={Message}",
+                sbEx.Reason,
+                sbEx.Message
+            );
+
             return PublishResult.PermanentFailure;
         }
         catch (ServiceBusException sbEx)
         {
-            // Transient ou não mapeado explicitamente -> tentar novamente
-            _logger.LogWarning($"[OutboxPublisher] Retryable failure: {sbEx.Reason} - {sbEx.Message}");
+            _logger.LogWarning(
+                "Falha temporária ao publicar no Service Bus. Motivo={Reason} Erro={Message}",
+                sbEx.Reason,
+                sbEx.Message
+            );
+
+            // Considerar retry
             return PublishResult.RetryableFailure;
         }
         catch (Exception ex)
         {
-            // Falhas desconhecidas: considere retry (no desafio é aceitável)
-            _logger.LogWarning($"[OutboxPublisher] Unexpected error: {ex.Message}");
+            _logger.LogWarning(
+                "Erro inesperado ao publicar no Service Bus. Erro={Message}",
+                ex.Message
+            );
+
+            // Considerar retry
             return PublishResult.RetryableFailure;
         }
     }
