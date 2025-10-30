@@ -27,24 +27,25 @@ docker compose up --build -d
 * Healthcheck: [http://localhost:5127/health](http://localhost:5127/health)
 * PgAdmin: [http://localhost:5050/login?next=/](http://localhost:5050/login?next=/)
 
-> **Observação:** hoje apenas o `docker compose up --build -d` é necessário.
+> Hoje apenas o `docker compose up --build -d` é necessário.
 
 ---
 
 ## 🔧 Configuração (.env)
 
 Use o arquivo **`.env.example`** como base (copie para `.env` na raiz do projeto).
-As variáveis relevantes incluem, entre outras, a string de conexão do Postgres e as credenciais do Service Bus.
+As variáveis incluem a string de conexão do Postgres e as credenciais do Service Bus.
 
 * **Service Bus**
 
   * `ASB_CONNECTION`
   * `ASB_ENTITY=orders`
-  * Propriedades do evento: `EventType=OrderCreated` e **⚠️ CorrelationId = OrderId (revisar se está 100% aplicado em todos os pontos).**
+  * Propriedades do evento: `EventType=OrderCreated` e **⚠️ CorrelationId = OrderId** (revisar se está aplicado em todos os pontos).
 
 * **Frontend → API**
-  Se desejar apontar o Frontend para outra URL de API, defina **`NEXT_PUBLIC_API_URL`** (ex.: `http://localhost:5127`).
-  Caso não informe, o frontend utiliza a configuração padrão do projeto.
+
+  * Opcional: defina **`NEXT_PUBLIC_API_URL`** (ex.: `http://localhost:5127`) para apontar o Frontend para outra URL da API.
+  * Se não informar, o frontend usa a configuração padrão do projeto.
 
 ---
 
@@ -75,7 +76,7 @@ Feedback visual:
 ## 📦 Outbox & Mensageria (transacional)
 
 * **Tabela**: `outbox_messages`
-  Campos relevantes: `Id`, `Type`, `Payload`, `OccurredOn`, `Processed` (bool), `ProcessedOn`, `Error` (opcional).
+  Campos: `Id`, `Type`, `Payload`, `OccurredOn`, `Processed` (bool), `ProcessedOn`, `Error` (opcional).
 * **Transação única**: o **pedido** e a **mensagem de outbox** são gravados na **mesma transação**.
 * **Publicação**: um dispatcher lê `outbox_messages` não processadas e publica na fila **`orders`**.
 * **Idempotência**: o consumidor garante consistência usando chaves (ex.: `OrderId`) e controle de mensagens processadas.
@@ -98,7 +99,7 @@ Propriedades do evento:
 
 ---
 
-## 🗺️ Diagramas (Mermaid)
+## 🗺️ Diagramas
 
 ### Sequência (criação do pedido → processamento)
 
@@ -146,24 +147,77 @@ graph LR
 
 ---
 
+## 📄 Sobre este desafio (PoC)
+
+**Objetivo**
+Desenvolver um sistema simples de gestão de pedidos, com criação, listagem e detalhes. A cada pedido criado, a API publica uma mensagem no **Azure Service Bus**; um **Worker** consome, processa e atualiza o status do pedido.
+
+**Tecnologias obrigatórias**
+
+* Backend: C# (.NET 7 ou superior) + Entity Framework + PostgreSQL
+* Frontend: React + TailwindCSS
+* Mensageria: Azure Service Bus
+* Infraestrutura: Docker / Docker Compose
+
+**Requisitos**
+
+* API com endpoints: `POST /orders`, `GET /orders`, `GET /orders/{id}`
+* Atributos do pedido: `id`, `cliente`, `produto`, `valor`, `status`, `data_criacao`
+* Status: `Pendente → Processando → Finalizado` (ordem obrigatória)
+* Persistir no Postgres e publicar no Service Bus ao criar um pedido
+* Worker idempotente: ao consumir, marcar **Processando**, aguardar ~5s e marcar **Finalizado**
+* Incluir `CorrelationId = OrderId` e `EventType = OrderCreated`
+* Health checks para API, banco e fila
+
+**Infra**
+
+* Docker Compose com API, Worker, Frontend, PostgreSQL e PgAdmin
+* `.env` para variáveis sensíveis
+* Migrações automáticas
+* Healthchecks no Compose
+
+**Módulo opcional — IA/Analytics**
+Endpoint/tela para perguntas em linguagem natural sobre os pedidos (ex.: “Pedidos hoje?”, “Tempo médio?”, “Pendentes agora?”, “Valor total finalizado no mês”). A LLM interpreta a pergunta, consulta o banco e responde com dados reais.
+
+**Diferenciais técnicos (bônus)**
+
+* Outbox Pattern (mensageria transacional)
+* Histórico de status do pedido
+* SignalR/WebSockets com fallback
+* Testcontainers
+* Tracing ponta-a-ponta
+* Golden Tests
+* Módulo IA/Analytics com LLM
+
+**Critérios de avaliação**
+
+* Qualidade do Código (30%), Mensageria & Confiabilidade (20%), Funcionalidade (15%), Documentação & DX (15%), Frontend & UX (10%), Testes Automatizados (10%)
+
+---
+
 ## 🧪 Testes
 
-* **Backend**: `dotnet test backend/OrderService.sln`
+* **Backend**:
+
+  ```bash
+  dotnet test backend/OrderService.sln
+  ```
 * **Cobertura** (opcional):
 
   ```bash
   dotnet test backend/OrderService.sln --collect:"XPlat Code Coverage"
   ```
-* Alguns testes que dependem do Service Bus podem ser condicionais à presença das variáveis de ambiente.
+
+> Testes que dependem do Service Bus podem ser condicionais à presença de variáveis de ambiente.
 
 ---
 
 ## 🧩 Troubleshooting
 
-* **API não sobe / falha de conexão**: verifique `DEFAULT_CONNECTION` no `.env`.
+* **API não sobe**: verifique `DEFAULT_CONNECTION` no `.env`.
 * **Mensageria**: confirme `ASB_CONNECTION` e se a fila **`orders`** existe.
-* **Migrations**: são aplicadas automaticamente no startup (ver logs da API).
-* **Frontend não encontra API**: defina `NEXT_PUBLIC_API_URL` apontando para `http://localhost:5127` e reinicie o frontend.
+* **Migrations**: aplicadas automaticamente no startup (ver logs da API).
+* **Frontend não encontra API**: defina `NEXT_PUBLIC_API_URL` com `http://localhost:5127` e reinicie o frontend.
 
 ---
 
@@ -177,4 +231,4 @@ graph LR
 * [x] Docker Compose (API, Worker, Frontend, Postgres, PgAdmin)
 * [x] `.env.example` incluído
 
-> **Pontos de atenção**: confirmar a presença/propagação de **`CorrelationId = OrderId`** em toda a cadeia (**⚠️**).
+> **Ponto de atenção**: confirmar a presença/propagação de **`CorrelationId = OrderId`** em toda a cadeia (**⚠️**).
