@@ -1,13 +1,14 @@
 using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Order.Core.Abstractions.Messaging.Outbox;
-using Order.Core.Domain.Repositories;
+using Order.Core.Application.Abstractions.Messaging.Outbox;
+using Order.Core.Application.Abstractions.Repositories;
 using Order.Infrastructure.Messaging.Outbox;
 using Order.Infrastructure.Persistence;
-using Order.Core.Abstractions;
+using Order.Core.Application.Abstractions;
 using Microsoft.Extensions.Logging;
-using Order.Infrastructure.Repositories;
+using Order.Infrastructure.Persistence.Repositories;
+using Order.Infrastructure.Messaging.ServiceBus;
 
 
 

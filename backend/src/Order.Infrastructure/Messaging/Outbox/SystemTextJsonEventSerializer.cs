@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Order.Core.Abstractions.Messaging.Outbox;
+using Order.Core.Application.Abstractions.Messaging.Outbox;
 
 namespace Order.Infrastructure.Messaging.Outbox;
 

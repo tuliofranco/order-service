@@ -1,7 +1,7 @@
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Order.Core.Abstractions;
+using Order.Core.Application.Abstractions;
 
 namespace Order.Infrastructure.Persistence;
 

@@ -7,9 +7,9 @@ using Moq;
 using Order.Core.Abstractions;
 using Order.Core.Domain.Entities;
 using Order.Core.Domain.Repositories;
-using Order.Core.Events;
+
 using Order.Core.Services;
-using Order.Core.Enums;
+using Order.Core.Domain.Entities.Enums;
 using DomainOrder = Order.Core.Domain.Entities.Order;
 
 namespace Order.Core.Tests;

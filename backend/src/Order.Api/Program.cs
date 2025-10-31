@@ -2,14 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Order.Infrastructure.Persistence;
-using Order.Core.Domain.Repositories;
-using Order.Core.Services;
+using Order.Core.Application.Abstractions.Repositories;
+using Order.Core.Application.Services;
 using Order.Infrastructure.HealthChecks;
-using Order.Core.Abstractions;
+using Order.Core.Application.Abstractions;
 using HealthChecks.UI.Client;
 using Order.Api.Infrastructure.Logging;
-using Order.Core.Events;
-using Order.Api.Health;
+using Order.Api.Observability.Health;
 using OrderService.Infrastructure;
 
 
@@ -43,7 +42,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddCors(o =>
     o.AddPolicy("default", p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
-builder.Services.AddScoped<IOrderService, Order.Core.Services.OrderService>();
+builder.Services.AddScoped<IOrderService, Order.Core.Application.Services.OrderService>();
 
 
 builder.Services.AddInfrastructure(enableOutboxProcessor: false);

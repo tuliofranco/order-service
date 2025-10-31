@@ -1,6 +1,6 @@
 using System;
 using FluentAssertions;
-using Order.Core.Events;
+
 
 namespace Order.Core.Tests;
 

@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
-using Order.Core.Events;
+
 using Order.Infrastructure.Messaging;
 using Xunit;
 

@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Order.Core.Domain;
-using Order.Core.Domain.Repositories;
+using Order.Core.Application.Abstractions.Repositories;
 using Order.Core.Domain.Entities.Enums;
 using Order.Core.Domain.Entities;
 

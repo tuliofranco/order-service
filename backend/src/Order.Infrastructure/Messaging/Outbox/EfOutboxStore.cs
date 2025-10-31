@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Order.Core.Abstractions.Messaging.Outbox;
+using Order.Core.Application.Abstractions.Messaging.Outbox;
 using Order.Infrastructure.Persistence;
 using Order.Infrastructure.Persistence.Entities;
 using System.Linq;

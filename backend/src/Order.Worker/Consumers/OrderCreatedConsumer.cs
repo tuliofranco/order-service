@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 using Order.Infrastructure.Persistence;
 using orderEnum = Order.Core.Domain.Entities.Enums;
 using Order.Worker.Services;
-using Order.Core.Domain.Repositories;
+using Order.Core.Application.Abstractions.Repositories;
 using Order.Core.Logging;
 using Order.Core.Domain.Entities;
 

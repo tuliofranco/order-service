@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Order.Core.Abstractions.Messaging.Outbox;
+using Order.Core.Application.Abstractions.Messaging.Outbox;
 
 namespace Order.Infrastructure.Messaging.Outbox;
 

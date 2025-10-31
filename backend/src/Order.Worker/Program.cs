@@ -10,7 +10,7 @@ using Order.Worker.Services;
 using Order.Worker.Consumers;
 using Order.Infrastructure.Persistence;
 using Order.Worker;
-using Order.Infrastructure.Idempotency;
+using Order.Worker.Idempotency;
 using OrderService.Infrastructure;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
