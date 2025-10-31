@@ -39,7 +39,7 @@ public sealed class OrderCreatedConsumer : BackgroundService
 
         _processor = busClient.CreateProcessor(_queueName, new ServiceBusProcessorOptions
         {
-            MaxConcurrentCalls = 5,          // paralelo
+            MaxConcurrentCalls = 5,
             AutoCompleteMessages = false
         });
 

@@ -1,6 +1,3 @@
-// backend/src/Order.Worker/Processing/ProcessOrder.cs
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Order.Core.Application.Abstractions;
 using Order.Core.Application.Abstractions.Idempotency;
 using Order.Core.Application.Abstractions.Repositories;
@@ -14,8 +11,6 @@ public sealed class ProcessOrder
 {
     private readonly ILogger<ProcessOrder> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
-
-    // Se quiser, extraia para IOptions<WorkerOptions>
     private const int FinalizeDelaySeconds = 5;
 
     public ProcessOrder(ILogger<ProcessOrder> logger, IServiceScopeFactory scopeFactory)
@@ -41,7 +36,6 @@ public sealed class ProcessOrder
             var idempotencyStore   = scope.ServiceProvider.GetRequiredService<IProcessedMessageStore>();
             var uow                = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-            // 1) Pendente → Processando (UPDATE condicional)
             var mudouParaProcessando = await repo.MarkProcessingIfPendingAsync(orderId, ct);
             if (mudouParaProcessando)
             {
@@ -58,7 +52,7 @@ public sealed class ProcessOrder
                 );
 
                 await historyRepo.AddAsync(historyProcessing, ct);
-                await uow.CommitAsync(ct); // persiste histórico “Processando”
+                await uow.CommitAsync(ct);
             }
             else
             {
@@ -104,7 +98,6 @@ public sealed class ProcessOrder
                 }
                 else
                 {
-                    // Outro worker pode ter finalizado; mantém idempotência
                     _logger.LogInformation("Pedido {OrderId} não estava em Processando no momento da finalização.", orderId);
                 }
             }, ct);

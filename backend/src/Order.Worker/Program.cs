@@ -6,7 +6,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Order.Worker.Services;
 using Order.Worker.Consumers;
 using Order.Infrastructure.Persistence;
 using Order.Worker;
@@ -32,7 +31,6 @@ builder.Services.AddInfrastructure(enableOutboxProcessor: true);
 
 var queueName = builder.Configuration["ASB_ENTITY"];
 
-builder.Services.AddScoped<StatusUpdater>();
 builder.Services.AddHostedService(sp =>
 {
     var logger = sp.GetRequiredService<ILogger<OrderCreatedConsumer>>();
