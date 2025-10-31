@@ -1,6 +1,6 @@
-using Order.Api.Feature.Orders.DTOs;
+using Order.Api.Features.Orders.DTOs;
 
-namespace Order.Api.Feature.Orders.Mapping;
+namespace Order.Api.Features.Orders.Mapping;
 
 public static class OrderStatusHistoryMapper
 {

@@ -1,17 +1,14 @@
-using System;
 using Order.Core.Application.Abstractions.Messaging.Outbox;
 
 
 namespace Order.Core.Domain.Events;
 
 public sealed record OrderCreatedIntegrationEvent(
-    // Contrato IIntegrationEvent
     Guid Id,
     DateTime OccurredOnUtc,
     string Type,
     string? CorrelationId,
     string? CausationId,
-    // Payload do evento
     Guid OrderId,
     string Cliente,
     string Produto,

@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
 using Order.Core.Domain.Entities.Enums;
 
-
 namespace Order.Core.Domain.Rules;
-
 public static class OrderStatusTransitionValidator
 {
     private static readonly IReadOnlyDictionary<OrderStatus, OrderStatus[]> Allowed =

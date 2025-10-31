@@ -1,6 +1,6 @@
 using System;
 using OrderEntity = Order.Core.Domain.Entities.Order;
-namespace Order.Api.Feature.Orders.DTOs;
+namespace Order.Api.Features.Orders.DTOs;
 
 public class OrderResponse
 {

@@ -12,5 +12,6 @@ public interface IOrderRepository
 
     Task UpdateAsync(OrderEntity order, CancellationToken ct = default);
     Task<bool> MarkProcessingIfPendingAsync(Guid orderId, CancellationToken ct);
+    Task<bool> MarkFinalizedIfProcessingAsync(Guid OrderId, CancellationToken ct);
     Task<bool> ExistsAsync(Guid orderId, CancellationToken ct);
 }

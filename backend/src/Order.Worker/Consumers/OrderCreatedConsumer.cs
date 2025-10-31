@@ -1,22 +1,6 @@
-#nullable enable
-
-using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Order.Infrastructure.Persistence;
-using orderEnum = Order.Core.Domain.Entities.Enums;
-using Order.Worker.Services;
-using Order.Core.Application.Abstractions.Repositories;
-using Order.Core.Logging;
-using Order.Core.Domain.Entities;
 
 namespace Order.Worker.Consumers;
 
@@ -55,34 +39,27 @@ public sealed class OrderCreatedConsumer : BackgroundService
 
         _processor = busClient.CreateProcessor(_queueName, new ServiceBusProcessorOptions
         {
-            MaxConcurrentCalls = 1,
+            MaxConcurrentCalls = 5,
             AutoCompleteMessages = false
         });
 
         _processor.ProcessMessageAsync += HandleMessageAsync;
         _processor.ProcessErrorAsync   += HandleErrorAsync;
 
-        await _processor.StartProcessingAsync(stoppingToken);
-
         try
         {
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                await Task.Delay(1000, stoppingToken);
-            }
+            await _processor.StartProcessingAsync(stoppingToken);
+            await Task.Delay(Timeout.Infinite, stoppingToken);
+        }
+        catch (OperationCanceledException)
+        {
         }
         finally
         {
             _logger.LogInformation("Encerrando leitura da fila {Queue}.", _queueName);
 
-            try
-            {
-                await _processor.StopProcessingAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Falha ao parar o processor do Service Bus.");
-            }
+            try { await _processor.StopProcessingAsync(CancellationToken.None); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Falha ao parar o processor( Service Bus )."); }
 
             await _processor.DisposeAsync();
         }
@@ -131,7 +108,11 @@ public sealed class OrderCreatedConsumer : BackgroundService
 
             try
             {
-                await ProcessOrderAsync(payload.OrderId, messageId, correlationId, args.CancellationToken);
+                using var scope = _scopeFactory.CreateScope();
+                var processor = scope.ServiceProvider.GetRequiredService<Processing.ProcessOrder>();
+
+                await processor.ExecuteAsync(payload.OrderId, messageId, correlationId, args.CancellationToken);
+
                 await args.CompleteMessageAsync(args.Message, args.CancellationToken);
 
                 _logger.LogInformation(
@@ -177,132 +158,4 @@ public sealed class OrderCreatedConsumer : BackgroundService
         return Task.CompletedTask;
     }
 
-    public async Task ProcessOrderAsync(Guid orderId, string messageId, string? correlationId, CancellationToken ct)
-    {
-        using (_logger.BeginScope(new Dictionary<string, object?>
-        {
-            ["component"] = "Worker",
-            ["evento"] = "ProcessarPedido",
-            ["orderId"] = orderId.ToString(),
-            ["correlationId"] = string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId,
-            [Correlation.Key] = string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId
-        }))
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var db          = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
-            var repo        = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
-            var historyRepo = scope.ServiceProvider.GetRequiredService<IOrderStatusHistoryRepository>();
-
-            // 1. Atualiza para Processando (se ainda estava Pendente)
-            var mudouParaProcessando = await repo.MarkProcessingIfPendingAsync(orderId, ct);
-
-            if (mudouParaProcessando)
-            {
-                _logger.LogInformation(
-                    "Pedido {OrderId} marcado como Processando.",
-                    orderId
-                );
-
-                var historyProcessing = OrderStatusHistory.Create(
-                    orderId: orderId,
-                    fromStatus: orderEnum.OrderStatus.Pendente,
-                    toStatus: orderEnum.OrderStatus.Processando,
-                    correlationId: string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId!,
-                    eventId: messageId,
-                    source: "Worker",
-                    reason: "Status alterado para Processando"
-                );
-
-                await historyRepo.AddAsync(historyProcessing, ct);
-            }
-            else
-            {
-                var exists = await repo.ExistsAsync(orderId, ct);
-                if (!exists)
-                {
-                    _logger.LogWarning("Pedido {OrderId} não encontrado.", orderId);
-                    return;
-                }
-
-                _logger.LogInformation(
-                    "Pedido {OrderId} já não estava Pendente. Nenhuma alteração.",
-                    orderId
-                );
-            }
-
-            // 2. Simula trabalho pesado
-            await Task.Delay(TimeSpan.FromSeconds(5), ct);
-
-            // 3. Transação final: marcar como Finalizado e registrar idempotência
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-            try
-            {
-                // Tabela processed_messages garante idempotência
-                var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
-                    INSERT INTO processed_messages (message_id, processed_at_utc)
-                    VALUES ({messageId}, {DateTime.UtcNow})
-                    ON CONFLICT (message_id) DO NOTHING;
-                ", ct);
-
-                if (rows == 0)
-                {
-                    // Já processado antes
-                    await tx.RollbackAsync(ct);
-                    _logger.LogInformation(
-                        "Mensagem já processada anteriormente. MessageId={MessageId}",
-                        messageId
-                    );
-                    return;
-                }
-
-                var order = await db.Orders.FindAsync(new object?[] { orderId }, ct);
-                if (order is null)
-                {
-                    await tx.RollbackAsync(ct);
-                    _logger.LogWarning(
-                        "Pedido {OrderId} não encontrado para finalizar.",
-                        orderId
-                    );
-                    return;
-                }
-
-                if (order.Status != orderEnum.OrderStatus.Finalizado)
-                {
-                    order.Status = orderEnum.OrderStatus.Finalizado;
-
-                    _logger.LogInformation(
-                        "Pedido {OrderId} marcado como Finalizado.",
-                        orderId
-                    );
-
-                    var historyFinalized = OrderStatusHistory.Create(
-                        orderId: order.Id,
-                        fromStatus: orderEnum.OrderStatus.Processando,
-                        toStatus:   orderEnum.OrderStatus.Finalizado,
-                        correlationId: string.IsNullOrWhiteSpace(correlationId) ? order.Id.ToString() : correlationId!,
-                        eventId: messageId,
-                        source: "Worker",
-                        reason: "Status alterado para Finalizado"
-                    );
-
-                    await historyRepo.AddAsync(historyFinalized, ct);
-                }
-
-                await db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Erro ao finalizar pedido {OrderId} (MessageId={MessageId}).",
-                    orderId,
-                    messageId
-                );
-
-                await tx.RollbackAsync(ct);
-            }
-        }
-    }
 }

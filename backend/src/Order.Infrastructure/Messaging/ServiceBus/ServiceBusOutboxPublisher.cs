@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using Order.Core.Application.Abstractions.Messaging.Outbox;
 using Microsoft.Extensions.Logging;
@@ -63,7 +62,6 @@ public sealed class ServiceBusOutboxPublisher : IOutboxPublisher
                 sbEx.Message
             );
 
-            // Considerar retry
             return PublishResult.RetryableFailure;
         }
         catch (Exception ex)

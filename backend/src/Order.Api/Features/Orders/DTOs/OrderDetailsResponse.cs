@@ -1,7 +1,4 @@
-
-using Order.Api.Feature.Orders.Mapping;
-
-namespace Order.Api.Feature.Orders.DTOs;
+namespace Order.Api.Features.Orders.DTOs;
 
 public sealed record OrderDetailsResponse(
     Guid Id,

@@ -1,8 +1,4 @@
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Logging;
 
 namespace Order.Api.Observability.Health;
 
@@ -12,7 +8,6 @@ public sealed class ComponentHealthPublisher(ILogger<ComponentHealthPublisher> l
 
     public Task PublishAsync(HealthReport report, CancellationToken cancellationToken)
     {
-        // Scope para herdar component=API em todos os logs daqui
         using (_logger.BeginScope(new Dictionary<string, object?>
         {
             ["component"] = "API"

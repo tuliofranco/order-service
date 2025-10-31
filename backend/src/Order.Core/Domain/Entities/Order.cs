@@ -1,8 +1,6 @@
 using Order.Core.Domain.Entities.Enums;
 
-
 namespace Order.Core.Domain.Entities;
-
 public class Order
 {
     public Guid Id { get; set; }

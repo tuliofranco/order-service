@@ -10,19 +10,6 @@
 !.env.example 
 
 # ===== resultados de test runner =====
-TestResults/
-*.trx
-*.coverage
-*.coveragexml
-
-# ===== code coverage =====
-coverage-report/
-coverage.cobertura.xml
-**/coverage.cobertura.xml
-*.lcov
-*.opencover.xml
-
-
 
 # Frontend
 node_modules/

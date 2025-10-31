@@ -1,4 +1,3 @@
-using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Order.Core.Application.Abstractions;
@@ -27,21 +26,36 @@ public sealed class EfUnitOfWork : IUnitOfWork
             try
             {
                 var entries = _db.ChangeTracker.Entries().ToList();
-                _logger.LogInformation("UoW commit {Count} entries", entries.Count);
+                _logger.LogInformation("UoW: commit de {Count} registros.", entries.Count);
 
                 var rows = await _db.SaveChangesAsync(ct);
 
                 await tx.CommitAsync(ct);
 
-                _logger.LogInformation("UoW commit ok ({Rows} rows)", rows);
+                _logger.LogInformation("UoW: commit OK ({Rows} linhas).", rows);
                 return rows;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "UoW commit failed, rollback");
+                _logger.LogError(ex, "UoW: falha no commit, realizando rollback.");
                 await tx.RollbackAsync(ct);
                 throw;
             }
         });
+    }
+    public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken ct = default)
+    {
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            await work(ct);
+            await _db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        catch
+        {
+            try { await tx.RollbackAsync(ct); } catch { /* ignore */ }
+            throw;
+        }
     }
 }
