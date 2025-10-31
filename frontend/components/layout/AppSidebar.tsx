@@ -6,7 +6,13 @@ import { memo } from "react";
 
 function AppSidebar() {
   return (
-    <aside className="hidden md:block bg-[#0f2740] text-white">
+    <aside
+      className="
+        hidden
+        lg:block
+        bg-[#0f2740] text-white
+      "
+    >
       <div className="sticky top-0 h-screen overflow-y-auto p-6">
         {/* Branding */}
         <div className="mb-8">
@@ -18,7 +24,12 @@ function AppSidebar() {
         <nav className="space-y-2">
           <Link
             href="/orders"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10 text-white font-medium hover:bg-white/15 transition-colors"
+            className="
+              flex items-center gap-3
+              px-4 py-3 rounded-lg
+              bg-white/10 text-white font-medium
+              hover:bg-white/15 transition-colors
+            "
             aria-current="page"
           >
             <Package className="h-5 w-5 shrink-0" />
