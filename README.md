@@ -1,45 +1,44 @@
-
 # Order-Service
 
 Sistema simples de gestão de pedidos com **API .NET**, **Frontend React/Next**, **PostgreSQL** e **Azure Service Bus**.  
 Quando um pedido é criado, os dados são persistidos, um **evento** é publicado na fila e um **Worker** processa o pedido, avançando o status até **Finalizado**.
 
-> **Principais pontos**
+> Principais pontos
 > - Status sequenciais obrigatórios: **Pendente → Processando → Finalizado**
-> - **Idempotência** no consumidor
-> - **CorrelationId = OrderId** e `EventType = OrderCreated` **implementados e propagados**
-> - **Outbox Pattern** para mensageria transacional
-> - **Health checks** para API, DB e fila
-> - **Tracing ponta-a-ponta** habilitado
+> - Idempotência no consumidor
+> - **CorrelationId = OrderId** e `EventType = OrderCreated` implementados e propagados
+> - Outbox Pattern para mensageria transacional
+> - Health checks para API, DB e fila
+> - Tracing ponta-a-ponta habilitado
 
 ---
 
-##  Table of Contents
+## Table of Contents
 
-- [ Stack & versões](#stack)
-- [ Subindo tudo (1 comando)](#up)
-- [ Configuração (.env)](#env)
-  - [Backend/API e Worker](#env-backend)
+- [Stack e versões](#stack)
+- [Subindo tudo (1 comando)](#up)
+- [Configuração (.env)](#env)
+  - [Backend/API, Worker, Banco, Service Bus e PgAdmin](#env-backend)
   - [Frontend](#env-frontend)
-- [ Endpoints principais (API)](#api)
+- [Endpoints principais (API)](#api)
   - [Health](#health)
-- [ Frontend](#fe)
-- [ Outbox & Mensageria (transacional)](#outbox)
-- [ Worker (consumidor)](#worker)
-- [ Testes](#tests)
-- [ Diagramas](#diagrams)
+- [Frontend](#fe)
+- [Outbox e Mensageria (transacional)](#outbox)
+- [Worker (consumidor)](#worker)
+- [Testes](#tests)
+- [Diagramas](#diagrams)
   - [Sequência (criação do pedido → processamento)](#seq)
   - [Implantação (Docker Compose)](#deploy)
-- [ Troubleshooting](#troubleshooting)
-- [ Módulo opcional — IA/Analytics (escopo)](#ai)
-- [ Diferenciais Técnicos (bônus)](#bonuses)
-- [ Checklist de entrega](#checklist)
-- [ Entrega esperada (repositório)](#entrega)
+- [Troubleshooting](#troubleshooting)
+- [Módulo opcional — IA/Analytics (escopo)](#ai)
+- [Diferenciais Técnicos (bônus)](#bonuses)
+- [Checklist de entrega](#checklist)
+- [Entrega esperada (repositório)](#entrega)
 
 ---
 
 <a id="stack"></a>
-## Stack & versões
+## Stack e versões
 
 - **Backend**: .NET SDK **9.0.109**
 - **Frontend**: Next.js **^16.0.1**, React **^19**
@@ -70,23 +69,34 @@ docker compose up --build -d
 
 ## Configuração (.env)
 
-Use o arquivo **`.env.example`** como base (copie para `.env` na raiz do projeto).
+Use o arquivo `.env.example` como base (copie para `.env` na raiz do projeto).
 
 <a id="env-backend"></a>
 
-### Backend/API e Worker
+### Backend/API, Worker, Banco, Service Bus e PgAdmin
 
 ```env
-# Postgres
-DEFAULT_CONNECTION=Host=postgres;Port=5432;Database=orders;Username=postgres;Password=postgres;
+# Ambiente ASP.NET
+ASPNETCORE_ENVIRONMENT=Development
+API_PORT=5127
 
-# Azure Service Bus
-ASB_CONNECTION=Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<key-name>;SharedAccessKey=<key>;EntityPath=orders
+# ---------- Postgres ----------
+POSTGRES_DB=orders_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_PORT=5432
+
+# String de conexão usada pela aplicação (.NET)
+STRING_CONNECTION=Host=db;Port=5432;Database=orders_db;Username=postgres;Password=postgres
+
+# ---------- Azure Service Bus ----------
+ASB_CONNECTION=sb://<SEU-NAMESPACE>.servicebus.windows.net/;SharedAccessKeyName=<SAS-NAME>;SharedAccessKey=<SAS-KEY>
 ASB_ENTITY=orders
 
-# Observabilidade (opcional)
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-OTEL_SERVICE_NAME=order-service-api
+# ---------- PgAdmin (infra/local tooling) ----------
+PGADMIN_EMAIL=admin@example.com
+PGADMIN_PASSWORD=admin123
+PGADMIN_PORT=5050
 ```
 
 <a id="env-frontend"></a>
@@ -98,7 +108,10 @@ OTEL_SERVICE_NAME=order-service-api
 NEXT_PUBLIC_API_URL=http://localhost:5127
 ```
 
-> **Importante:** O evento publicado inclui `EventType=OrderCreated` e **`CorrelationId=OrderId`** em toda a cadeia (API → ASB → Worker).
+Observações:
+
+* O evento publicado inclui `EventType=OrderCreated` e **`CorrelationId=OrderId`** em toda a cadeia (API → ASB → Worker).
+* O host do Postgres no Docker Compose é `db` (vide `STRING_CONNECTION`).
 
 ---
 
@@ -116,8 +129,8 @@ NEXT_PUBLIC_API_URL=http://localhost:5127
 
 * `GET /health` → verifica API, DB e fila
 
-**Atributos do pedido:** `id`, `cliente`, `produto`, `valor`, `status`, `data_criacao`
-**Regras de negócio:** persistir no Postgres; publicar no ASB; status na sequência **Pendente → Processando → Finalizado**.
+Atributos do pedido: `id`, `cliente`, `produto`, `valor`, `status`, `data_criacao`
+Regras de negócio: persistir no Postgres; publicar no ASB; status na sequência **Pendente → Processando → Finalizado**.
 
 ---
 
@@ -132,21 +145,21 @@ Rotas principais:
 
 Feedback visual:
 
-* **Toasts** em mudanças de status
-* **Polling** (~3s) para refletir atualizações
+* Toasts em mudanças de status
+* Polling (~3s) para refletir atualizações
 
-> Opcionalmente, configure `NEXT_PUBLIC_API_URL` para apontar a API em outra URL.
+> Opcionalmente, ajuste `NEXT_PUBLIC_API_URL` para apontar a API em outra URL.
 
 ---
 
 <a id="outbox"></a>
 
-## Outbox & Mensageria (transacional)
+## Outbox e Mensageria (transacional)
 
 * **Tabela**: `outbox_messages`
   Campos: `Id`, `Type`, `Payload`, `OccurredOn`, `Processed` (bool), `ProcessedOn`, `Error` (opcional)
 
-* **Transação única**: **pedido** + **mensagem de outbox** são gravados na **mesma transação**.
+* **Transação única**: **pedido** + **mensagem de outbox** gravados na **mesma transação**.
 
 * **Dispatcher**: publica mensagens não processadas na fila **`orders`** do Azure Service Bus.
 
@@ -154,7 +167,7 @@ Feedback visual:
 
 * **Limpeza**: após confirmação, marca como processada e realiza delete/soft-delete.
 
-**Propriedades do evento**
+Propriedades do evento:
 
 * `EventType = OrderCreated`
 * **`CorrelationId = OrderId`** (implementado e propagado)
@@ -171,7 +184,7 @@ Fluxo ao consumir `OrderCreated`:
 2. Aguarda ~5 segundos
 3. Atualiza o status para **Finalizado**
 
-O consumidor é **idempotente** e segue a sequência de status obrigatória.
+O consumidor é idempotente e segue a sequência de status obrigatória.
 
 ---
 
@@ -185,19 +198,12 @@ O consumidor é **idempotente** e segue a sequência de status obrigatória.
 dotnet test backend/OrderService.sln
 ```
 
-**Cobertura** (opcional):
-
-```bash
-dotnet test backend/OrderService.sln --collect:"XPlat Code Coverage"
-```
-
-> Testes que dependem do Service Bus podem ser condicionais às variáveis de ambiente.
 
 ---
 
 <a id="diagrams"></a>
 
-## 🗺️ Diagramas
+## Diagramas
 
 <a id="seq"></a>
 
@@ -253,10 +259,10 @@ graph LR
 
 ## Troubleshooting
 
-* **API não sobe** → verifique `DEFAULT_CONNECTION` no `.env`.
-* **Mensageria** → confirme `ASB_CONNECTION` e se a fila **`orders`** existe.
-* **Migrations** → aplicadas automaticamente no startup (ver logs).
-* **Frontend não encontra API** → defina `NEXT_PUBLIC_API_URL=http://localhost:5127` e reinicie o frontend.
+* API não sobe → verifique `STRING_CONNECTION` no `.env`.
+* Mensageria → confirme `ASB_CONNECTION` e se a fila `orders` existe.
+* Migrations → aplicadas automaticamente no startup (ver logs).
+* Frontend não encontra API → defina `NEXT_PUBLIC_API_URL=http://localhost:5127` e reinicie o frontend.
 
 ---
 
@@ -267,7 +273,7 @@ graph LR
 Endpoint/tela para perguntas em linguagem natural sobre os pedidos (ex.: “Pedidos hoje?”, “Tempo médio?”, “Pendentes agora?”, “Valor total finalizado no mês”).
 A LLM interpreta a pergunta, consulta o banco e responde com dados reais.
 
-> Este módulo é **opcional** e pode render pontos extras.
+> Este módulo é opcional e pode render pontos extras.
 
 ---
 
@@ -275,15 +281,15 @@ A LLM interpreta a pergunta, consulta o banco e responde com dados reais.
 
 ## Diferenciais Técnicos (bônus)
 
-* **Outbox Pattern (mensageria transacional)**
-* **Histórico de status do pedido**
-* **Tracing ponta-a-ponta**
+* Outbox Pattern (mensageria transacional)
+* Histórico de status do pedido
+* Tracing ponta-a-ponta
 * SignalR/WebSockets com fallback
 * Testcontainers
 * Golden Tests
 * Módulo IA/Analytics com LLM
 
-> Os três primeiros já estão contemplados neste projeto; os demais podem ser evoluídos.
+Os três primeiros já estão contemplados neste projeto; os demais podem ser evoluídos.
 
 ---
 
@@ -294,14 +300,14 @@ A LLM interpreta a pergunta, consulta o banco e responde com dados reais.
 * [x] API com `POST /orders`, `GET /orders`, `GET /orders/{id}`
 * [x] Persistência (PostgreSQL) + EF Migrations automáticas
 * [x] Publicação no Azure Service Bus ao criar pedido
-* [x] **CorrelationId = OrderId** e `EventType = OrderCreated` **implementados**
-* [x] **Outbox Pattern** transacional
+* [x] **CorrelationId = OrderId** e `EventType = OrderCreated` implementados
+* [x] Outbox Pattern transacional
 * [x] Worker idempotente: Processando → Finalizado (delay ~5s)
 * [x] Healthchecks (API, DB, fila)
 * [x] Frontend: listagem, criação, detalhes, toasts e polling
 * [x] Docker Compose (API, Worker, Frontend, Postgres, PgAdmin)
 * [x] `.env.example` incluído
-* [x] **Tracing ponta-a-ponta** habilitado
+* [x] Tracing ponta-a-ponta habilitado
 * [x] Histórico de status do pedido
 * [ ] SignalR/WebSockets com fallback
 * [ ] Testcontainers
@@ -315,9 +321,8 @@ A LLM interpreta a pergunta, consulta o banco e responde com dados reais.
 ## Entrega esperada (repositório)
 
 * Código-fonte completo
-* **README.md** (este arquivo) com instruções claras
-* **`.env.example`**
-* **Diagramas simples de arquitetura** (incluídos acima)
+* README.md (este arquivo) com instruções claras
+* `.env.example`
+* Diagramas simples de arquitetura (incluídos acima)
 
----
 
