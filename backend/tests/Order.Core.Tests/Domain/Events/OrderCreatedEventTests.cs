@@ -11,18 +11,15 @@ public class OrderCreatedEventTests
     [Fact]
     public void Create_DevePopularCamposPadrao_CorrelationIdPadraoETypeV1()
     {
-        // Arrange
         var orderId = Guid.NewGuid();
         var cliente = "Tulio";
         var produto = "Boleto";
         var valor   = 300m;
 
-        // Act
         var before = DateTime.UtcNow;
         var evt = OrderCreatedIntegrationEvent.Create(orderId, cliente, produto, valor);
         var after  = DateTime.UtcNow;
 
-        // Assert - contrato IIntegrationEvent e payload
         evt.Id.Should().NotBeEmpty();
         evt.OccurredOnUtc.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
         evt.OccurredOnUtc.Kind.Should().Be(DateTimeKind.Utc);
@@ -40,7 +37,6 @@ public class OrderCreatedEventTests
     [Fact]
     public void Create_ComOverride_DeveRespeitarCorrelationIdECausationIdETipo()
     {
-        // Arrange
         var orderId       = Guid.NewGuid();
         var cliente       = "Ana";
         var produto       = "Pix";
@@ -49,7 +45,6 @@ public class OrderCreatedEventTests
         var causationId   = Guid.NewGuid().ToString("N");
         var type          = "OrderCreated.custom";
 
-        // Act
         var evt = OrderCreatedIntegrationEvent.Create(
             orderId: orderId,
             cliente: cliente,
@@ -60,7 +55,6 @@ public class OrderCreatedEventTests
             type: type
         );
 
-        // Assert
         evt.Type.Should().Be(type);
         evt.CorrelationId.Should().Be(correlationId);
         evt.CausationId.Should().Be(causationId);
@@ -74,14 +68,12 @@ public class OrderCreatedEventTests
     [Fact]
     public void Create_MultiplasChamadasDevemGerarIdsUnicos()
     {
-        // Arrange
+
         var orderId = Guid.NewGuid();
 
-        // Act
         var e1 = OrderCreatedIntegrationEvent.Create(orderId, "A", "X", 10m);
         var e2 = OrderCreatedIntegrationEvent.Create(orderId, "A", "X", 10m);
 
-        // Assert
         e1.Id.Should().NotBeEmpty();
         e2.Id.Should().NotBeEmpty();
         e1.Id.Should().NotBe(e2.Id, "cada evento deve ter um Id único");

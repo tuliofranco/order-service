@@ -49,10 +49,8 @@ public class OrderServiceTests
             .Callback<DomainOrder, CancellationToken>((o, _) => capturedOrder = o)
             .Returns(Task.CompletedTask);
 
-        // act
         var created = await service.CreateOrderAsync(cliente, produto, valor, ct);
 
-        // assert - objeto retornado e regra de nascimento
         created.Should().NotBeNull();
         created.Id.Should().NotBe(Guid.Empty);
         created.ClienteNome.Should().Be(cliente);
@@ -60,7 +58,6 @@ public class OrderServiceTests
         created.Valor.Should().Be(valor);
         created.Status.Should().Be(OrderStatus.Pendente, "o pedido nasce pendente");
 
-        // assert - persistência
         repo.Verify(r => r.AddAsync(
             It.Is<DomainOrder>(o => o.Id == created.Id
                                     && o.ClienteNome == cliente
@@ -69,7 +66,6 @@ public class OrderServiceTests
                                     && o.Status == OrderStatus.Pendente),
             ct), Times.Once);
 
-        // assert - histórico inicial gravado
         historyRepo.Verify(h => h.AddAsync(
             It.Is<OrderStatusHistoryEntity>(h =>
                 h.OrderId == created.Id
@@ -79,7 +75,6 @@ public class OrderServiceTests
                 && h.CorrelationId == created.Id.ToString()),
             ct), Times.Once);
 
-        // assert - outbox recebeu o evento de criação com o payload esperado
         outbox.Verify(o => o.AppendAsync(
             It.Is<IIntegrationEvent>(e =>
                 e != null
@@ -106,7 +101,6 @@ public class OrderServiceTests
     [Fact]
     public async Task GetAllAsync_DeveDelegarAoRepositorioERetornarMesmaLista()
     {
-        // arrange
         var repo        = new Mock<IOrderRepository>();
         var uow         = new Mock<IUnitOfWork>();
         var historyRepo = new Mock<IOrderStatusHistoryRepository>();
@@ -132,10 +126,8 @@ public class OrderServiceTests
 
         var ct = CancellationToken.None;
 
-        // act
         var result = await service.GetAllAsync(ct);
 
-        // assert
         result.Should().BeSameAs(expected);
         repo.Verify(r => r.GetAllAsync(ct), Times.Once);
         uow.VerifyNoOtherCalls();
@@ -146,7 +138,6 @@ public class OrderServiceTests
     [Fact]
     public async Task GetByIdAsync_DeveRetornarDoRepositorio_QuandoExistir()
     {
-        // arrange
         var repo        = new Mock<IOrderRepository>();
         var uow         = new Mock<IUnitOfWork>();
         var historyRepo = new Mock<IOrderStatusHistoryRepository>();
@@ -169,10 +160,7 @@ public class OrderServiceTests
 
         var ct = CancellationToken.None;
 
-        // act
         var result = await service.GetByIdAsync(id, ct);
-
-        // assert
         result.Should().Be(existing);
         repo.Verify(r => r.GetByIdAsync(id, ct), Times.Once);
         uow.VerifyNoOtherCalls();

@@ -8,23 +8,20 @@ namespace Order.Core.Tests.Rules;
 
 public class OrderStatusTransitionValidatorTests
 {
-    // --------- IsValid ---------
 
     [Theory]
-    [InlineData(null, OrderStatus.Pendente, true)]           // caminho: inicial permitido
-    [InlineData(null, OrderStatus.Processando, false)]       // caminho: inicial negado
-    [InlineData(OrderStatus.Pendente, OrderStatus.Processando, true)] // transição válida
-    [InlineData(OrderStatus.Pendente, OrderStatus.Finalizado, false)] // transição inválida
+    [InlineData(null, OrderStatus.Pendente, true)]
+    [InlineData(null, OrderStatus.Processando, false)]
+    [InlineData(OrderStatus.Pendente, OrderStatus.Processando, true)]
+    [InlineData(OrderStatus.Pendente, OrderStatus.Finalizado, false)]
     [InlineData(OrderStatus.Processando, OrderStatus.Finalizado, true)]
     [InlineData(OrderStatus.Processando, OrderStatus.Pendente, false)]
-    [InlineData(OrderStatus.Finalizado, OrderStatus.Finalizado, false)] // não há próximos
+    [InlineData(OrderStatus.Finalizado, OrderStatus.Finalizado, false)]
     public void IsValid_Combinacoes_DeveRetornarEsperado(OrderStatus? fromStatus, OrderStatus toStatus, bool esperado)
     {
         var ok = OrderStatusTransitionValidator.IsValid(fromStatus, toStatus);
         ok.Should().Be(esperado);
     }
-
-    // --------- EnsureValid: caminhos de exceção com mensagens ---------
 
     [Fact]
     public void EnsureValid_InicialInvalido_DeveLancarComListaInicial()
@@ -47,7 +44,6 @@ public class OrderStatusTransitionValidatorTests
     [Fact]
     public void EnsureValid_ChaveNaoMapeada_DeveLancarComNenhum()
     {
-        // força o ramo Allowed.TryGetValue == false
         var fromStatusNaoMapeado = (OrderStatus)999;
 
         Action act = () => OrderStatusTransitionValidator.EnsureValid(fromStatusNaoMapeado, OrderStatus.Pendente);
@@ -55,8 +51,6 @@ public class OrderStatusTransitionValidatorTests
         act.Should().Throw<InvalidOperationException>()
            .WithMessage("*'999' → 'Pendente'. Esperado: [<nenhum>]*");
     }
-
-    // --------- EnsureValid: caminho feliz ---------
 
     [Fact]
     public void EnsureValid_TransicaoValida_NaoDeveLancar()
