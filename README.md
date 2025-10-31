@@ -135,14 +135,14 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph Docker
-      FE[frontend (3000)] --- API[api (.NET, 5127)]
-      API --- DB[(postgres 5432)]
-      API --- ASB[(azure service bus)]
-      WK[worker (.NET)] --- DB
-      WK --- ASB
-      PG[pgadmin (5050)] --- DB
-    end
+  subgraph Docker
+    FE["Frontend<br/>:3000"] --- API["API (.NET)<br/>:5127"]
+    API --- DB["Postgres<br/>:5432"]
+    API --- ASB["Azure Service Bus"]
+    WK["Worker (.NET)"] --- DB
+    WK --- ASB
+    PG["pgAdmin<br/>:5050"] --- DB
+  end
 ```
 
 ---
