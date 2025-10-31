@@ -1,22 +1,22 @@
 using System;
 using FluentAssertions;
-using Order.Core.Enums;
+using Order.Core.Domain.Entities.Enums;
 
 using DomainOrder = Order.Core.Domain.Entities.Order;
 
-namespace Order.Core.Tests;
+namespace Order.Core.Tests.Domain.Entities;
 
 public class OrderTests
 {
     [Fact]
     public void Create_DeveRetornarOrderValida_ComStatusPendente()
     {
-        // arrange
+        // Preparar pro teste
         var nome = "Tulio";
         var produto = "Boleto";
         var valor = 300m;
 
-        // act
+        // Ação
         var order = DomainOrder.Create(nome, produto, valor);
 
         // assert

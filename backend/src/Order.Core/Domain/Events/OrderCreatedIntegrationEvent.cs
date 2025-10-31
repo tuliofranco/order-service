@@ -5,7 +5,6 @@ using Order.Core.Application.Abstractions.Messaging.Outbox;
 namespace Order.Core.Domain.Events;
 
 public sealed record OrderCreatedIntegrationEvent(
-    // Contrato IIntegrationEvent
     Guid Id,
     DateTime OccurredOnUtc,
     string Type,

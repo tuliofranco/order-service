@@ -46,7 +46,7 @@ public class OrderService(
             var integrationEvent = new OrderCreatedIntegrationEvent(
                 Id: Guid.NewGuid(),
                 OccurredOnUtc: DateTime.UtcNow,
-                Type: "OrderCreated", // simples pro desafio ✅
+                Type: "OrderCreated",
                 CorrelationId: correlationId,
                 CausationId: null,
                 OrderId: order.Id,
