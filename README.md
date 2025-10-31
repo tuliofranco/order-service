@@ -161,7 +161,7 @@ Feedback visual:
 
 * **Transação única**: **pedido** + **mensagem de outbox** gravados na **mesma transação**.
 
-* **Dispatcher**: publica mensagens não processadas na fila **`orders`** do Azure Service Bus.
+* **Dispatcher**: Publicação no Azure Service Bus: o **publicador de outbox** é o `ServiceBusOutboxPublisher`.
 
 * **Idempotência**: consumidor usa chaves (`OrderId`) e controle de mensagens já processadas.
 
