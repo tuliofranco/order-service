@@ -1,12 +1,13 @@
-using System.Linq;
-using Order.Api.Feature.Orders.DTOs;
-namespace Order.Api.Feature.Orders.Mapping;
+using Order.Api.Features.Orders.DTOs;
+using OrderEntity = Order.Core.Domain.Entities;
+
+namespace Order.Api.Features.Orders.Mapping;
 
 public static class OrderDetailsMapper
 {
     public static OrderDetailsResponse ToResponse(
-        Order.Core.Domain.Entities.Order order,
-        IReadOnlyList<Order.Core.Domain.Entities.OrderStatusHistory> history)
+        OrderEntity.Order order,
+        IReadOnlyList<OrderEntity.OrderStatusHistory> history)
     {
         return new OrderDetailsResponse(
             Id: order.Id,

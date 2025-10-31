@@ -1,8 +1,5 @@
 using Order.Core.Domain.Entities.Enums;
 
-using System;
-
-
 namespace Order.Core.Domain.Entities;
 
 public sealed class OrderStatusHistory

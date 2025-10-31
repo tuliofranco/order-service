@@ -49,11 +49,30 @@ public class EfOrderRepository : IOrderRepository
 
         if (rows == 1)
         {
-            _logger.LogInformation("Order {OrderId} set to Processando", orderId);
+            _logger.LogInformation("Order {OrderId} setado como Processando", orderId);
             return true;
         }
 
-        _logger.LogInformation("Order {OrderId} not moved to Processando", orderId);
+        _logger.LogInformation("Order {OrderId} não mudou para o status de Processando", orderId);
+        return false;
+    }
+
+    public async Task<bool> MarkFinalizedIfProcessingAsync(Guid orderId, CancellationToken ct = default)
+    {
+        var rows = await _db.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE orders
+            SET status = {"Finalizado"}
+            WHERE id = {orderId}
+              AND status = {"Processando"};
+        ", ct);
+
+        if (rows == 1)
+        {
+            _logger.LogInformation("Order {OrderId} setado como Finalizado.", orderId);
+            return true;
+        }
+
+        _logger.LogInformation("Order {OrderId} não mudou para o status de Finalizado.", orderId);
         return false;
     }
 

@@ -1,4 +1,3 @@
-using System;
 using Order.Core.Application.Abstractions.Messaging.Outbox;
 
 
@@ -10,7 +9,6 @@ public sealed record OrderCreatedIntegrationEvent(
     string Type,
     string? CorrelationId,
     string? CausationId,
-    // Payload do evento
     Guid OrderId,
     string Cliente,
     string Produto,

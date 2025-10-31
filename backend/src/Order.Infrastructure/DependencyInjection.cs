@@ -9,7 +9,8 @@ using Order.Core.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 using Order.Infrastructure.Persistence.Repositories;
 using Order.Infrastructure.Messaging.ServiceBus;
-
+using Order.Infrastructure.Persistence.Idempotency;
+using Order.Core.Application.Abstractions.Idempotency;
 
 
 namespace OrderService.Infrastructure;
@@ -40,25 +41,20 @@ public static class DependencyInjection
             );
         });
 
-        // ====== Unit of Work ======
+        // ====== Services ======
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
-
-        // ====== Repositório ======
         services.AddScoped<IOrderRepository, EfOrderRepository>();
-
         services.AddScoped<IOrderStatusHistoryRepository, EfOrderStatusHistoryRepository>();
-
-        // ====== Outbox: Serializer, Store e Publisher ======
         services.AddSingleton<IEventSerializer, SystemTextJsonEventSerializer>();
         services.AddScoped<IOutboxStore, EfOutboxStore>();
+        services.AddScoped<IProcessedMessageStore, ProcessedMessageStore>();
 
-        // ServiceBusClient (singleton)
+
         if (string.IsNullOrWhiteSpace(asbConnection))
             throw new InvalidOperationException("Azure Service Bus não configurado (defina ASB_CONNECTION ou passe via AddInfrastructure).");
 
         services.AddSingleton(new ServiceBusClient(asbConnection));
 
-        // Outbox Publisher (usa o ServiceBusClient e a entidade configurada)
         if (string.IsNullOrWhiteSpace(asbEntityName))
             throw new InvalidOperationException("Nome da fila/tópico do ASB não configurado (defina ASB_ENTITY ou passe via AddInfrastructure).");
 

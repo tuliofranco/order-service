@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -11,8 +8,6 @@ namespace Order.Infrastructure.HealthChecks
     {
         private readonly ServiceBusClient _client;
         private readonly ILogger<ServiceBusQueueHealthCheck> _logger;
-
-        // nome da fila que seu worker/producer usa
         private const string QueueName = "orders";
 
         public ServiceBusQueueHealthCheck(
@@ -29,11 +24,7 @@ namespace Order.Infrastructure.HealthChecks
         {
             try
             {
-                // tenta criar um sender/receiver só pra validar que consegue falar com a fila
                 var sender = _client.CreateSender(QueueName);
-                // opcional: você pode tentar acessar propriedades da fila via ManagementClient,
-                // mas o SDK novo não expõe mais tão fácil sem permissões especiais.
-                // Só de conseguir criar o sender sem exception de credencial/host já é sinal de vida.
                 await sender.CloseAsync(cancellationToken);
 
                 _logger.LogInformation("Service Bus OK para fila {QueueName}", QueueName);

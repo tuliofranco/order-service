@@ -1,4 +1,4 @@
-namespace Order.Api.Feature.Orders.DTOs;
+namespace Order.Api.Features.Orders.DTOs;
 
 public sealed record OrderStatusHistoryResponse(
     Guid Id,

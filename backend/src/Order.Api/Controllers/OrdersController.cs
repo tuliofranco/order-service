@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Order.Api.Feature.Orders.DTOs;
-using Order.Api.Feature.Orders.Mapping;
+using Order.Api.Features.Orders.DTOs;
+using Order.Api.Features.Orders.Mapping;
 using Order.Core.Application.Services;
-using Microsoft.Extensions.Logging;
 
 namespace Order.Api.Controllers;
 

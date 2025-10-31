@@ -1,11 +1,5 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Order.Core.Domain;
 using Order.Core.Application.Abstractions.Repositories;
 using Order.Core.Domain.Entities.Enums;
-using Order.Core.Domain.Entities;
 
 
 namespace Order.Worker.Services
@@ -25,15 +19,12 @@ namespace Order.Worker.Services
 
         public async Task AdvanceOrderStatusAsync(Guid orderId, CancellationToken ct)
         {
-            // 1. Buscar pedido atual
             var order = await _repo.GetByIdAsync(orderId, ct);
             if (order is null)
             {
                 _logger.LogWarning("Pedido {OrderId} não encontrado.", orderId);
                 return;
             }
-
-            // 2. Idempotência: se já finalizado, não faz nada
             if (order.Status == OrderStatus.Finalizado)
             {
                 _logger.LogInformation(
@@ -43,7 +34,6 @@ namespace Order.Worker.Services
                 return;
             }
 
-            // 3. Se está Pendente, marcar como Processando
             if (order.Status == OrderStatus.Pendente)
             {
                 order.Status = OrderStatus.Processando;
@@ -55,10 +45,10 @@ namespace Order.Worker.Services
                 );
             }
 
-            // 4. Esperar 5 segundos simulando processamento
+            // Requisito do desafio para simular o comportamento assincrono
+            // ( "Criar um worker que consome mensagens, atualiza para 'Processando' e, após 5 segundos, altera para 'Finalizado'" )
             await Task.Delay(TimeSpan.FromSeconds(5), ct);
 
-            // 5. Buscar novamente (ou reusar tracked, depende do repo)
             order = await _repo.GetByIdAsync(orderId, ct);
             if (order is null)
             {

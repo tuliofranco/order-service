@@ -12,6 +12,7 @@ using Order.Infrastructure.Persistence;
 using Order.Worker;
 using Order.Worker.Idempotency;
 using OrderService.Infrastructure;
+using Order.Worker.Processing;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
@@ -26,7 +27,7 @@ builder.Configuration
     .AddEnvironmentVariables();
 
 builder.Services.AddScoped<ProcessedMessageStore, ProcessedMessageStore>();
-
+builder.Services.AddScoped<ProcessOrder>();   
 builder.Services.AddInfrastructure(enableOutboxProcessor: true);
 
 var queueName = builder.Configuration["ASB_ENTITY"];

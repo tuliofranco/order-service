@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Order.Core.Application.Abstractions.Messaging.Outbox;
 using Order.Infrastructure.Persistence;
 using Order.Infrastructure.Persistence.Entities;
-using System.Linq;
 
 namespace Order.Infrastructure.Messaging.Outbox;
 
@@ -24,7 +23,7 @@ public class EfOutboxStore : IOutboxStore
     {
         var payload = _serializer.Serialize(@event);
 
-        _logger.LogInformation("Outbox append {OutboxId} {Type}", @event.Id, @event.Type);
+        _logger.LogInformation("Outbox adicionado {OutboxId} {Type}", @event.Id, @event.Type);
 
         var entity = new OutboxMessage
         {
@@ -47,7 +46,7 @@ public class EfOutboxStore : IOutboxStore
             .Take(maxBatchSize)
             .ToListAsync(ct);
 
-        _logger.LogInformation("Outbox fetch {Count} pending", rows.Count);
+        _logger.LogInformation("Outbox: {Count} registros pendentes recuperados.", rows.Count);
 
         return rows
             .Select(x => new OutboxRecord(
@@ -61,7 +60,7 @@ public class EfOutboxStore : IOutboxStore
 
     public async Task MarkPublishedAsync(Guid outboxId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Outbox delete {OutboxId}", outboxId);
+        _logger.LogInformation("Outbox: {OutboxId} deletado.", outboxId);
 
         await _db.OutboxMessages
             .Where(x => x.Id == outboxId)
@@ -70,7 +69,7 @@ public class EfOutboxStore : IOutboxStore
 
     public Task MarkFailedAsync(Guid outboxId, string error, CancellationToken ct = default)
     {
-        _logger.LogWarning("Outbox mark failed {OutboxId}: {Error}", outboxId, error);
+        _logger.LogWarning("Outbox — erro ao marcar como falha {OutboxId}: {Error}", outboxId, error);
         return Task.CompletedTask;
     }
 }
