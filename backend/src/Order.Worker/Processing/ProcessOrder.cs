@@ -3,7 +3,7 @@ using Order.Core.Application.Abstractions.Idempotency;
 using Order.Core.Application.Abstractions.Repositories;
 using Order.Core.Domain.Entities;
 using Order.Infrastructure.Persistence;
-using orderEnum = Order.Core.Domain.Entities.Enums;
+using Order.Core.Domain.Entities.Enums;
 
 namespace Order.Worker.Processing;
 
@@ -12,6 +12,25 @@ public sealed class ProcessOrder
     private readonly ILogger<ProcessOrder> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
     private const int FinalizeDelaySeconds = 5;
+
+    private static OrderStatusHistory BuildHistory(
+        Guid orderId,
+        OrderStatus from,
+        OrderStatus to,
+        string messageId,
+        string? correlationId,
+        string reason)
+    {
+        return OrderStatusHistory.Create(
+            orderId: orderId,
+            fromStatus: from,
+            toStatus: to,
+            correlationId: string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId!,
+            eventId: messageId,
+            source: "Worker",
+            reason: reason
+        );
+    }
 
     public ProcessOrder(ILogger<ProcessOrder> logger, IServiceScopeFactory scopeFactory)
     {
@@ -29,72 +48,69 @@ public sealed class ProcessOrder
             ["correlationId"] = string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId
         }))
         {
-            using var scope        = _scopeFactory.CreateScope();
-            var db                 = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
-            var repo               = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
-            var historyRepo        = scope.ServiceProvider.GetRequiredService<IOrderStatusHistoryRepository>();
-            var idempotencyStore   = scope.ServiceProvider.GetRequiredService<IProcessedMessageStore>();
-            var uow                = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            using var scope      = _scopeFactory.CreateScope();
+            var db               = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+            var repo             = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+            var historyRepo      = scope.ServiceProvider.GetRequiredService<IOrderStatusHistoryRepository>();
+            var idempotencyStore = scope.ServiceProvider.GetRequiredService<IProcessedMessageStore>();
+            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-            var mudouParaProcessando = await repo.MarkProcessingIfPendingAsync(orderId, ct);
-            if (mudouParaProcessando)
+            await uow.ExecuteInTransactionAsync(async innerCt =>
             {
-                _logger.LogInformation("Pedido {OrderId} marcado como Processando.", orderId);
-
-                var historyProcessing = OrderStatusHistory.Create(
-                    orderId: orderId,
-                    fromStatus: orderEnum.OrderStatus.Pendente,
-                    toStatus:   orderEnum.OrderStatus.Processando,
-                    correlationId: string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId!,
-                    eventId: messageId,
-                    source: "Worker",
-                    reason: "Status alterado para Processando"
-                );
-
-                await historyRepo.AddAsync(historyProcessing, ct);
-                await uow.CommitAsync(ct);
-            }
-            else
-            {
-                var exists = await repo.ExistsAsync(orderId, ct);
-                if (!exists)
+                bool pendingToProcessing = await repo.ChangeStatusAsync(orderId, OrderStatus.Pendente, OrderStatus.Processando, innerCt);
+                if (pendingToProcessing)
                 {
-                    _logger.LogWarning("Pedido {OrderId} não encontrado.", orderId);
-                    return;
-                }
+                    var historyProcessed = BuildHistory(
+                        orderId,
+                        OrderStatus.Pendente,
+                        OrderStatus.Processando,
+                        messageId,
+                        correlationId,
+                        "Status alterado para Processando"
+                    );
+                    await historyRepo.AddAsync(historyProcessed, innerCt);
 
-                _logger.LogInformation("Pedido {OrderId} já não estava Pendente. Nenhuma alteração.", orderId);
-            }
+                    _logger.LogInformation("Pedido {OrderId} marcado como Processando.", orderId);
+                }
+                else
+                {
+                    bool exists = await repo.ExistsAsync(orderId, innerCt);
+                    if (!exists)
+                    {
+                        _logger.LogWarning("Pedido {OrderId} não encontrado.", orderId);
+                        return;
+                    }
+                    _logger.LogInformation("Pedido {OrderId} já não estava Pendente. Nenhuma alteração.", orderId);
+                }
+            }, ct);
 
             // 2) Simulação de processamento assíncrono
             await Task.Delay(TimeSpan.FromSeconds(FinalizeDelaySeconds), ct);
 
+
             await uow.ExecuteInTransactionAsync(async innerCt =>
             {
-                var firstTime = await idempotencyStore.TryMarkProcessedAsync(messageId, innerCt);
+                bool firstTime = await idempotencyStore.TryMarkProcessedAsync(messageId, innerCt);
                 if (!firstTime)
                 {
                     _logger.LogInformation("Mensagem já processada. MessageId={MessageId}", messageId);
                     return;
                 }
 
-                var mudouParaFinalizado = await repo.MarkFinalizedIfProcessingAsync(orderId, innerCt);
-                if (mudouParaFinalizado)
+                bool processingToCompleted = await repo.ChangeStatusAsync(orderId, OrderStatus.Processando, OrderStatus.Finalizado, innerCt);
+                if (processingToCompleted)
                 {
-                    _logger.LogInformation("Pedido {OrderId} marcado como Finalizado.", orderId);
-
-                    var historyFinalized = OrderStatusHistory.Create(
-                        orderId: orderId,
-                        fromStatus: orderEnum.OrderStatus.Processando,
-                        toStatus:   orderEnum.OrderStatus.Finalizado,
-                        correlationId: string.IsNullOrWhiteSpace(correlationId) ? orderId.ToString() : correlationId!,
-                        eventId: messageId,
-                        source: "Worker",
-                        reason: "Status alterado para Finalizado"
+                    var historyFinalized = BuildHistory(
+                        orderId,
+                        OrderStatus.Processando,
+                        OrderStatus.Finalizado,
+                        messageId,
+                        correlationId,
+                        "Status alterado para Finalizado"
                     );
-
                     await historyRepo.AddAsync(historyFinalized, innerCt);
 
+                    _logger.LogInformation("Pedido {OrderId} marcado como Finalizado.", orderId);
                 }
                 else
                 {

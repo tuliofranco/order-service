@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using OrderEntity = Order.Core.Domain.Entities.Order;
 using Order.Core.Application.Abstractions.Repositories;
+using Order.Core.Domain.Entities.Enums;
+using Order.Core.Domain.Rules;
 
 namespace Order.Infrastructure.Persistence.Repositories;
 
@@ -38,44 +40,29 @@ public class EfOrderRepository : IOrderRepository
         return Task.CompletedTask;
     }
 
-    public async Task<bool> MarkProcessingIfPendingAsync(Guid orderId, CancellationToken ct = default)
-    {
-        var rows = await _db.Database.ExecuteSqlInterpolatedAsync($@"
-            UPDATE orders
-            SET status = {"Processando"}
-            WHERE id = {orderId}
-              AND status = {"Pendente"};
-        ", ct);
-
-        if (rows == 1)
-        {
-            _logger.LogInformation("Order {OrderId} setado como Processando", orderId);
-            return true;
-        }
-
-        _logger.LogInformation("Order {OrderId} não mudou para o status de Processando", orderId);
-        return false;
-    }
-
-    public async Task<bool> MarkFinalizedIfProcessingAsync(Guid orderId, CancellationToken ct = default)
-    {
-        var rows = await _db.Database.ExecuteSqlInterpolatedAsync($@"
-            UPDATE orders
-            SET status = {"Finalizado"}
-            WHERE id = {orderId}
-              AND status = {"Processando"};
-        ", ct);
-
-        if (rows == 1)
-        {
-            _logger.LogInformation("Order {OrderId} setado como Finalizado.", orderId);
-            return true;
-        }
-
-        _logger.LogInformation("Order {OrderId} não mudou para o status de Finalizado.", orderId);
-        return false;
-    }
-
     public Task<bool> ExistsAsync(Guid orderId, CancellationToken ct = default) =>
         _db.Orders.AnyAsync(o => o.Id == orderId, ct);
+
+
+    public async Task<bool> ChangeStatusAsync(Guid orderId, OrderStatus from, OrderStatus to, CancellationToken ct = default)
+    {
+        OrderStatusTransitionValidator.EnsureValid(from, to);
+
+        var rows = await _db.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE orders
+               SET status = {to.ToString()}
+             WHERE id     = {orderId}
+               AND status = {from.ToString()};
+        ", ct);
+
+        if (rows == 1)
+        {
+            _logger.LogInformation("Order {OrderId}: {From} -> {To}", orderId, from, to);
+            return true;
+        }
+
+        _logger.LogInformation("Order {OrderId}: transição ignorada ({From} -> {To})", orderId, from, to);
+        return false;
+    }
+
 }
