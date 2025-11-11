@@ -85,7 +85,9 @@ public sealed class ProcessOrder
             }, ct);
 
             // 2) Simulação de processamento assíncrono
+            _logger.LogInformation("Simulando processamento assincrono de 5 segundos.");
             await Task.Delay(TimeSpan.FromSeconds(FinalizeDelaySeconds), ct);
+            _logger.LogInformation("Processamento finalizado.");
 
 
             await uow.ExecuteInTransactionAsync(async innerCt =>
