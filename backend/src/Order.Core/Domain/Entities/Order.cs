@@ -14,6 +14,7 @@ public class Order
     public OrderStatus Status { get; set; }
 
     public DateTime data_criacao { get; set; }
+    public DateTime? data_de_efetivacao { get; set; }
 
     public static Order Create(string clienteNome, string produto, decimal valor)
     {

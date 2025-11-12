@@ -1,20 +1,40 @@
 using Microsoft.EntityFrameworkCore;
 using Order.Core.Application.Abstractions.Idempotency;
-
+using Order.Infrastructure.Persistence.Entities;
+using Order.Infrastructure.Persistence;
+using Microsoft.Extensions.DependencyInjection;
+using Order.Core.Application.Abstractions;
 namespace Order.Infrastructure.Persistence.Idempotency;
 
-public sealed class ProcessedMessageStore(OrderDbContext db) : IProcessedMessageStore
+public sealed class ProcessedMessageStore(OrderDbContext db, IServiceScopeFactory _scopeFactory) : IProcessedMessageStore
 {
     public Task<bool> HasProcessedAsync(string messageId, CancellationToken ct = default)
         => db.ProcessedMessages.AnyAsync(x => x.MessageId == messageId, ct);
 
     public async Task<bool> TryMarkProcessedAsync(string messageId, CancellationToken ct = default)
     {
-        var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
-            INSERT INTO processed_messages (message_id, processed_at_utc)
-            VALUES ({messageId}, NOW() AT TIME ZONE 'UTC')
-            ON CONFLICT (message_id) DO NOTHING;", ct);
 
-        return rows == 1;
+        using var scope = _scopeFactory.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+
+        var entity = new ProcessedMessage
+        {
+            MessageId = messageId,
+            ProcessedAtUtc = DateTime.UtcNow
+        };
+        db.ProcessedMessages.Add(entity);
+
+        try
+        {
+            await uow.CommitAsync();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+        
+
     }
 }

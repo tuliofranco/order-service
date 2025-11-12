@@ -47,13 +47,24 @@ public class EfOrderRepository : IOrderRepository
     public async Task<bool> ChangeStatusAsync(Guid orderId, OrderStatus from, OrderStatus to, CancellationToken ct = default)
     {
         OrderStatusTransitionValidator.EnsureValid(from, to);
+        var now = DateTime.UtcNow;
 
-        var rows = await _db.Database.ExecuteSqlInterpolatedAsync($@"
-            UPDATE orders
-               SET status = {to.ToString()}
-             WHERE id     = {orderId}
-               AND status = {from.ToString()};
-        ", ct);
+        var query = _db.Orders.Where(o => o.Id == orderId && o.Status == from);
+        int rows;
+        if (from == OrderStatus.Processando && to == OrderStatus.Finalizado)
+        {
+            rows = await query.ExecuteUpdateAsync(up => up
+            .SetProperty(o => o.Status, to)
+            .SetProperty(o => o.data_de_efetivacao, o => o.data_de_efetivacao ?? now), ct
+            );
+
+        }
+        else
+        {
+            rows = await query.ExecuteUpdateAsync(up => up
+            .SetProperty(o => o.Status, to)
+            , ct);
+        }
 
         if (rows == 1)
         {
