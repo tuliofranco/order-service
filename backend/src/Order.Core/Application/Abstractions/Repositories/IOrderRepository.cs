@@ -1,4 +1,5 @@
 using OrderEntity = Order.Core.Domain.Entities.Order;
+using Order.Core.Domain.Entities.Enums;
 
 namespace Order.Core.Application.Abstractions.Repositories;
 
@@ -11,7 +12,8 @@ public interface IOrderRepository
     Task<IReadOnlyList<OrderEntity>> GetAllAsync(CancellationToken ct = default);
 
     Task UpdateAsync(OrderEntity order, CancellationToken ct = default);
-    Task<bool> MarkProcessingIfPendingAsync(Guid orderId, CancellationToken ct);
-    Task<bool> MarkFinalizedIfProcessingAsync(Guid OrderId, CancellationToken ct);
+
     Task<bool> ExistsAsync(Guid orderId, CancellationToken ct);
+
+    Task<bool> ChangeStatusAsync(Guid orderId, OrderStatus from, OrderStatus to, CancellationToken ct = default);
 }

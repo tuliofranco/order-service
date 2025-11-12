@@ -50,9 +50,13 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
            .HasConversion<string>()
            .IsRequired();
 
-        cfg.Property(o => o.data_criacao)
-           .HasColumnName("data_criacao")
-           .IsRequired();
+       cfg.Property(o => o.data_criacao)
+          .HasColumnName("data_criacao")
+          .IsRequired();
+
+         cfg.Property(o => o.data_de_efetivacao)
+           .HasColumnName("data_de_efetivacao")
+           .IsRequired(false);
     });
 
     modelBuilder.Entity<ProcessedMessage>(b =>

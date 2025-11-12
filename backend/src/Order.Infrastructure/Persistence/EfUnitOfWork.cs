@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Order.Core.Application.Abstractions;
@@ -45,17 +46,21 @@ public sealed class EfUnitOfWork : IUnitOfWork
     }
     public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken ct = default)
     {
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
-        try
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            await work(ct);
-            await _db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        }
-        catch
-        {
-            try { await tx.RollbackAsync(ct); } catch { /* ignore */ }
-            throw;
-        }
+            await using var tx = await _db.Database.BeginTransactionAsync(ct);
+            try
+            {
+                await work(ct);
+                await _db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+            }
+            catch
+            {
+                try { await tx.RollbackAsync(ct); } catch { }
+                throw;
+            }
+        });
     }
 }

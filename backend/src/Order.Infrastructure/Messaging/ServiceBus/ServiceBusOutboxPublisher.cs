@@ -35,6 +35,7 @@ public sealed class ServiceBusOutboxPublisher : IOutboxPublisher
         {
             var sender = _client.CreateSender(_entityName);
             await sender.SendMessageAsync(message, ct);
+            // await sender.SendMessageAsync(message, ct);
 
             _logger.LogInformation(
                 "Mensagem publicada no Service Bus. OutboxId={OutboxId} Tipo={Type}",

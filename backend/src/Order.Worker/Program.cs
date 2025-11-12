@@ -25,7 +25,7 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: true)
     .AddEnvironmentVariables();
 
-builder.Services.AddScoped<ProcessedMessageStore, ProcessedMessageStore>();
+
 builder.Services.AddScoped<ProcessOrder>();   
 builder.Services.AddInfrastructure(enableOutboxProcessor: true);
 
