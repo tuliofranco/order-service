@@ -71,7 +71,6 @@ public sealed class ProcessOrder
                         "Status alterado para Processando"
                     );
                     await historyRepo.AddAsync(historyProcessed, innerCt);
-                    var order = await repo.GetByIdAsync(orderId, ct);
 
                     _logger.LogInformation("Pedido {OrderId} marcado como Processando.", orderId);
                 }
