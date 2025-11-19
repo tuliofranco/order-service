@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Order.Api.Features.Orders.DTOs;
 using Order.Api.Features.Orders.Mapping;
+using Order.Api.Notification;
 using Order.Core.Application.Services;
 
 namespace Order.Api.Controllers;
@@ -11,11 +13,13 @@ public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
     private readonly ILogger<OrdersController> _logger;
+    private readonly IOrderNotificationService _notifications;
 
-    public OrdersController(IOrderService orderService, ILogger<OrdersController> logger)
+    public OrdersController(IOrderService orderService, ILogger<OrdersController> logger, IOrderNotificationService notifications)
     {
         _orderService = orderService;
         _logger = logger;
+        _notifications = notifications;
     }
 
     [HttpPost]
@@ -42,6 +46,7 @@ public class OrdersController : ControllerBase
         }
 
         var response = OrderResponse.FromDomain(created);
+        await _notifications.NotifyOrderCreatedAsync(response);
 
         return CreatedAtAction(
             nameof(GetById),

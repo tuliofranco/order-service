@@ -1,13 +1,14 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Order.Core.Application.Abstractions.Messaging.Outbox;
+using Order.Infrastructure.Messaging.ServiceBus;
 
 namespace Order.Infrastructure.Messaging.Outbox;
 
 public sealed class OutboxProcessor : BackgroundService
 {
-    private readonly IOutboxStore _store;
-    private readonly IOutboxPublisher _publisher;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<OutboxProcessor> _logger;
 
     private readonly int _batchSize;
@@ -15,15 +16,13 @@ public sealed class OutboxProcessor : BackgroundService
     private readonly TimeSpan _errorDelay;
 
     public OutboxProcessor(
-        IOutboxStore store,
-        IOutboxPublisher publisher,
+        IServiceScopeFactory serviceScopeFactory,
         ILogger<OutboxProcessor> logger,
         int batchSize = 50,
         int idleDelayMilliseconds = 1000,
         int errorDelayMilliseconds = 2000)
     {
-        _store = store;
-        _publisher = publisher;
+        _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
 
         _batchSize = batchSize <= 0 ? 50 : batchSize;
@@ -34,6 +33,10 @@ public sealed class OutboxProcessor : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("OutboxProcessor iniciado (tamanho do lote = {Batch})", _batchSize);
+
+        var _scope = _serviceScopeFactory.CreateScope();
+        var _store = _scope.ServiceProvider.GetRequiredService<IOutboxStore>();
+        var _publisher = _scope.ServiceProvider.GetRequiredService<ServiceBusOutboxPublisher>();
 
         while (!stoppingToken.IsCancellationRequested)
         {

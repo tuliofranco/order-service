@@ -4,6 +4,7 @@ using Order.Core.Application.Abstractions.Repositories;
 using Order.Core.Domain.Entities;
 using Order.Infrastructure.Persistence;
 using Order.Core.Domain.Entities.Enums;
+using Order.Core.Application.Abstractions.Notification;
 
 namespace Order.Worker.Processing;
 
@@ -53,7 +54,8 @@ public sealed class ProcessOrder
             var repo             = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
             var historyRepo      = scope.ServiceProvider.GetRequiredService<IOrderStatusHistoryRepository>();
             var idempotencyStore = scope.ServiceProvider.GetRequiredService<IProcessedMessageStore>();
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var uow              = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var notifications    = scope.ServiceProvider.GetRequiredService<IWorkerOrderNotification>();
 
             await uow.ExecuteInTransactionAsync(async innerCt =>
             {
@@ -83,6 +85,7 @@ public sealed class ProcessOrder
                     _logger.LogInformation("Pedido {OrderId} já não estava Pendente. Nenhuma alteração.", orderId);
                 }
             }, ct);
+            await notifications.NotifyOrderStatusChangedAsync(orderId);
 
             // 2) Simulação de processamento assíncrono
             _logger.LogInformation("Simulando processamento assincrono de 5 segundos.");
@@ -119,6 +122,7 @@ public sealed class ProcessOrder
                     _logger.LogInformation("Pedido {OrderId} não estava em Processando no momento da finalização.", orderId);
                 }
             }, ct);
+            await notifications.NotifyOrderStatusChangedAsync(orderId, ct);
         }
     }
 }

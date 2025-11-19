@@ -48,6 +48,7 @@ services:
       STRING_CONNECTION: ${STRING_CONNECTION}
       ASB_CONNECTION: ${ASB_CONNECTION}
       ASB_ENTITY: ${ASB_ENTITY}
+      
     ports:
       - "${API_PORT}:8080"
     # healthcheck:
@@ -72,6 +73,7 @@ services:
       STRING_CONNECTION: ${STRING_CONNECTION}
       ASB_CONNECTION: ${ASB_CONNECTION}
       ASB_ENTITY: ${ASB_ENTITY}
+      ORDER_HUB_URL: ${ORDER_HUB_URL}
 
   frontend:
     build:
@@ -86,6 +88,8 @@ services:
     environment:
       # ainda passamos para runtime para Server Components/APIs (ok manter)
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_ORDER_HUB_PATH: ${ORDER_HUB_PATH}
+      NEXT_PUBLIC_ORDER_HUB_URL: ${ORDER_HUB_URL}
     ports:
       - "3000:3000"
 

@@ -12,6 +12,10 @@ using Order.Worker;
 using Order.Worker.Idempotency;
 using OrderService.Infrastructure;
 using Order.Worker.Processing;
+using Order.Worker.Notification;
+using Azure.Messaging.ServiceBus;
+using DotNetEnv;
+using Order.Core.Application.Abstractions.Notification;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
@@ -21,15 +25,38 @@ builder.Logging.AddJsonConsole(o =>
     o.IncludeScopes = true;
 });
 
+try { Env.TraversePath().Load(); } catch { }
+
+
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: true)
     .AddEnvironmentVariables();
 
+var services = builder.Services;
+var configuration = builder.Configuration;
+var hubUrl =
+    Environment.GetEnvironmentVariable("ORDER_HUB_URL") ?? configuration["Notification:HubUrl"]; // url completa: http://localhost:5127/hub/notification
+
+if (string.IsNullOrWhiteSpace(hubUrl))
+{
+    throw new InvalidOperationException(
+        "Hub URL do SignalR não configurado. " +
+        "Defina ORDER_HUB_URL ou Notification:HubUrl."
+    );
+}
+
+services.Configure<WorkerNotificationOptions>(options =>
+{
+    options.HubUrl = hubUrl;
+});
+
+services.AddSingleton<IWorkerOrderNotification, WorkerOrderNotification>();
 
 builder.Services.AddScoped<ProcessOrder>();   
 builder.Services.AddInfrastructure(enableOutboxProcessor: true);
 
-var queueName = builder.Configuration["ASB_ENTITY"];
+var queueName = configuration["ASB_ENTITY"]
+    ?? throw new InvalidOperationException("Configuração 'ASB_ENTITY' não foi definida.");
 
 builder.Services.AddHostedService(sp =>
 {
@@ -42,6 +69,8 @@ builder.Services.AddHostedService(sp =>
         queueName
     );
 });
+
+
 
 using IHost host = builder.Build();
 

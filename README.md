@@ -10,6 +10,7 @@ Quando um pedido é criado, os dados são persistidos, um **evento** é publicad
 > - Outbox Pattern para mensageria transacional
 > - Health checks para API, DB e fila
 > - Tracing ponta-a-ponta habilitado
+> - **Atualização em tempo real via SignalR** (criação de pedidos e mudança de status)
 
 ---
 
@@ -23,6 +24,7 @@ Quando um pedido é criado, os dados são persistidos, um **evento** é publicad
 - [Endpoints principais (API)](#api)
   - [Health](#health)
 - [Frontend](#fe)
+- [Notificações em tempo real (SignalR)](#realtime)
 - [Outbox e Mensageria (transacional)](#outbox)
 - [Worker (consumidor)](#worker)
 - [Testes](#tests)
@@ -40,10 +42,11 @@ Quando um pedido é criado, os dados são persistidos, um **evento** é publicad
 <a id="stack"></a>
 ## Stack e versões
 
-- **Backend**: .NET SDK **9.0.109**
+- **Backend**: .NET SDK **9.0.109**  (ASP.NET Core + SignalR)
 - **Frontend**: Next.js **^16.0.1**, React **^19**
 - **Banco**: PostgreSQL 16 (Docker)
 - **Mensageria**: Azure Service Bus — fila **`orders`**
+- **Comunicação em tempo real**: ASP.NET Core SignalR (WebSockets com fallback)
 - **Infra**: Docker / Docker Compose
 - **Migrations**: automáticas no startup (sem seed)
 
@@ -146,9 +149,30 @@ Rotas principais:
 Feedback visual:
 
 * Toasts em mudanças de status
-* Polling (~3s) para refletir atualizações
+* **Atualização em tempo real via SignalR**:
+  * Notificação de **novo pedido criado**
+  * Notificação de **mudança de status** (Pendente → Processando → Finalizado)
+* Polling apenas como fallback/ponto específico (detalhes ou cenários sem WebSockets, se necessário)
 
 > Opcionalmente, ajuste `NEXT_PUBLIC_API_URL` para apontar a API em outra URL.
+
+---
+
+<a id="realtime"></a>
+
+## Notificações em tempo real (SignalR)
+
+Além do fluxo assíncrono via Azure Service Bus, o projeto expõe um **Hub SignalR** para notificar o frontend em tempo real:
+
+* `OrderNotificationHub` (API .NET) expõe métodos para notificar:
+  * **OrderCreatedNotification** → dispara quando um novo pedido é criado
+  * **OrderChangeStatusNotification** → dispara quando o Worker avança o status do pedido
+* O frontend (Next.js) mantém uma conexão com o Hub usando **@microsoft/signalr**:
+  * Na tela de lista (`/orders`), o hook `useOrderHub`:
+    * Adiciona pedidos novos na tabela assim que são criados
+    * Atualiza o `status` dos pedidos no cache do SWR ao receber eventos de mudança de status
+* Com isso, a tabela de pedidos é atualizada em tempo real, sem necessidade de polling contínuo na API.
+
 
 ---
 
@@ -309,7 +333,7 @@ Os três primeiros já estão contemplados neste projeto; os demais podem ser ev
 * [x] `.env.example` incluído
 * [x] Tracing ponta-a-ponta habilitado
 * [x] Histórico de status do pedido
-* [ ] SignalR/WebSockets com fallback
+* [x] SignalR/WebSockets com fallback
 * [ ] Testcontainers
 * [ ] Golden Tests
 * [ ] Módulo IA/Analytics com LLM (pergunte sobre os pedidos)

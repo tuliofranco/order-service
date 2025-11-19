@@ -1,22 +1,25 @@
-import useSWR from 'swr';
-import { ordersService } from '@/lib/services/orders';
-import type { OrderItem } from '@/types/orders-list';
+import useSWR from "swr";
+import type { OrdersList } from "@/types/orders-list";
+import type { UseOrdersResult } from "@/types/use-orders-result";
+import { ordersService } from "@/lib/services/orders";
 
+const fetcher = () => ordersService.list();
 
-export function useOrders() {
-  const { data, error, isLoading, mutate } = useSWR<OrderItem[]>(
-    '/orders',
-    () => ordersService.list(),
+export function useOrders(): UseOrdersResult {
+  const { data, error, isLoading, mutate } = useSWR<OrdersList, Error>(
+    "/orders",
+    fetcher,
     {
-      refreshInterval: 3000,
-      revalidateOnFocus: true,
+      fallbackData: [],
     }
   );
 
+  const orders: OrdersList = Array.isArray(data) ? data : [];
+
   return {
     orders: data ?? [],
-    error: error as Error | undefined,
-    isLoading: !!isLoading && !data,
+    isLoading,
+    error: error ?? null,
     mutate,
   };
 }

@@ -5,15 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import type { OrderItem } from "@/types/orders-list";
+import type { OrderCreatedResponse } from "@/types/order-created-response";
+import type { OrderStatus } from "@/types/order-status";
 
 type OrdersTableProps = {
-  orders: OrderItem[];
+  orders: OrderCreatedResponse[];
   loading: boolean;
   formatCurrency: (v: number) => string;
   formatDateTime: (iso: string) => string;
-  getStatusVariant: (status: string) => "default" | "secondary" | "destructive" | "outline";
-  actionRenderer: (order: OrderItem) => React.ReactNode;
+  getStatusVariant: (status: OrderStatus) => "default" | "secondary" | "destructive" | "outline";
+  actionRenderer: (order: OrderCreatedResponse) => React.ReactNode;
 };
 
 function OrdersTable({
@@ -24,7 +25,8 @@ function OrdersTable({
   getStatusVariant,
   actionRenderer,
 }: OrdersTableProps) {
-  const hasData = orders.length > 0;
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const hasData = safeOrders.length > 0;
 
   return (
     <div className="rounded-lg border bg-white">
@@ -56,7 +58,7 @@ function OrdersTable({
                 </TableCell>
               </TableRow>
             ) : (
-              orders.map((order) => (
+              safeOrders.map((order) => (
                 <TableRow key={order.id} className="hover:bg-gray-50 transition-colors">
                   <TableCell className="font-mono text-xs text-gray-600">
                     {order.id.slice(0, 8)}…

@@ -6,16 +6,25 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { OrderInfoCard } from "@/components/orders/OrderInfoCard";
 import { useOrder } from "@/hooks/useOrder";
 import { useOrderStatusToast } from "@/hooks/useOrderStatusToast";
+import { useOrderHub } from "@/hooks/useOrderHub"; 
 
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  const { order, isLoading, error, mutate } = useOrder(id, { refreshMs: 1500 });
+  const { order, isLoading, error, mutate } = useOrder(id, { refreshMs: 0 });
 
   useOrderStatusToast(order, {
     onlyWhenFinalized: false,
     dedupeMs: 1500,
+  });
+
+  useOrderHub({
+    onOrderStatusChanged: async (updated) => {
+      if (updated === id) {
+        await mutate();
+      }
+    },
   });
 
   return (

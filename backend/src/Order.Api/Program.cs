@@ -8,11 +8,15 @@ using HealthChecks.UI.Client;
 using Order.Api.Infrastructure.Logging;
 using Order.Api.Observability.Health;
 using OrderService.Infrastructure;
-
-
-var builder = WebApplication.CreateBuilder(args);
+using Microsoft.AspNetCore.SignalR;
+using Order.Api.Notification;
+using System.Text.Json;
+using Microsoft.CodeAnalysis.Options;
+using System.Text.Json.Serialization;
 
 try { DotNetEnv.Env.TraversePath().Load(); } catch { }
+
+var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddSingleton<IHealthCheckPublisher, ComponentHealthPublisher>();
@@ -34,14 +38,19 @@ builder.Services.AddControllers()
     .AddJsonOptions(o =>
         o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
+builder.Services.AddSignalR().AddJsonProtocol(options =>
+{
+    options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddCors(o =>
     o.AddPolicy("default", p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 builder.Services.AddScoped<IOrderService, Order.Core.Application.Services.OrderService>();
-
 
 builder.Services.AddInfrastructure(enableOutboxProcessor: false);
 
@@ -66,7 +75,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("default");
 app.MapControllers();
-
+app.MapHub<OrderNotificationHub>("/hub/notification"); // Apenas o caminho do hub /hub/notification
 
 
 app.MapHealthChecks("/health", new HealthCheckOptions

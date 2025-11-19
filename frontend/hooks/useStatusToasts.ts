@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import type { OrderItem } from "@/types/orders-list";
+import type { OrderCreatedResponse } from "@/types/order-created-response";
 
 type Options = {
   onlyWhenFinalized?: boolean;
@@ -10,7 +10,7 @@ type Options = {
 };
 
 export function useStatusToasts(
-  orders: OrderItem[] | undefined,
+  orders: OrderCreatedResponse[] | undefined,
   opts: Options = {}
 ) {
   const { toast } = useToast();
