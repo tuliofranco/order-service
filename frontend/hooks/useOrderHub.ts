@@ -14,7 +14,7 @@ export type OrderStatusChangedPayload = {
 
 type UseOrderHubOptions = {
   onOrderCreated?: (order: OrderCreatedResponse) => void;
-  onOrderStatusChanged?: (payload: OrderStatusChangedPayload) => void;
+  onOrderStatusChanged?: (orderId: string) => void;
 };
 
 export function useOrderHub({

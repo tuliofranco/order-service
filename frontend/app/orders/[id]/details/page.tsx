@@ -21,7 +21,7 @@ export default function OrderDetailsPage() {
 
   useOrderHub({
     onOrderStatusChanged: async (updated) => {
-      if (updated.id === id) {
+      if (updated === id) {
         await mutate();
       }
     },

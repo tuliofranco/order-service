@@ -20,6 +20,7 @@ import {
   getStatusVariant,
 } from "@/lib/formatters";
 import type { OrderCreatedResponse } from "@/types/order-created-response";
+import { ordersService } from "@/lib/services/orders";
 
 export default function OrdersPage() {
   const { orders, isLoading: loading, error, mutate } = useOrders();
@@ -54,17 +55,27 @@ export default function OrdersPage() {
       });
     },
 
-    // atualiza apenas o status no cache atual, sem disparar novo GET
-    onOrderStatusChanged: (updated) => {
-      mutate(
-        (current) => {
-          const list = current ?? [];
-          return list.map((o) =>
-            o.id === updated.id ? { ...o, status: updated.status } : o
+    onOrderStatusChanged: async (orderId) => {
+
+      try {
+        const latest = await ordersService.getById(orderId);
+        mutate(
+          (current) => {
+            const list = current ?? [];
+            return list.map((o) => 
+              o.id == latest.id
+            ? {
+              ...o,
+              status: latest.status,
+            }
+            :o
           );
-        },
-        { revalidate: false }
-      );
+          },
+          { revalidate: false}
+        );
+      } catch (err) {
+        console.error("[OrdersPage] Erro ao buscar pedido atualizado", err);
+      }
     },
   });
 

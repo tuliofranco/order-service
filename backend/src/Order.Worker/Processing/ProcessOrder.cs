@@ -75,8 +75,6 @@ public sealed class ProcessOrder
                     await historyRepo.AddAsync(historyProcessed, innerCt);
                     var order = await repo.GetByIdAsync(orderId, ct);
 
-                    await notifications.NotifyOrderStatusChangedAsync(orderId);
-
                     _logger.LogInformation("Pedido {OrderId} marcado como Processando.", orderId);
                 }
                 else
@@ -90,6 +88,7 @@ public sealed class ProcessOrder
                     _logger.LogInformation("Pedido {OrderId} já não estava Pendente. Nenhuma alteração.", orderId);
                 }
             }, ct);
+            await notifications.NotifyOrderStatusChangedAsync(orderId);
 
             // 2) Simulação de processamento assíncrono
             _logger.LogInformation("Simulando processamento assincrono de 5 segundos.");
@@ -119,8 +118,6 @@ public sealed class ProcessOrder
                     );
                     await historyRepo.AddAsync(historyFinalized, innerCt);
 
-                    await notifications.NotifyOrderStatusChangedAsync(orderId, ct);
-
                     _logger.LogInformation("Pedido {OrderId} marcado como Finalizado.", orderId);
                 }
                 else
@@ -128,6 +125,7 @@ public sealed class ProcessOrder
                     _logger.LogInformation("Pedido {OrderId} não estava em Processando no momento da finalização.", orderId);
                 }
             }, ct);
+            await notifications.NotifyOrderStatusChangedAsync(orderId, ct);
         }
     }
 }
