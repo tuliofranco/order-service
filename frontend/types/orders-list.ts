@@ -1,10 +1,3 @@
-export type OrdersList = OrderItem[];
+import { OrderCreatedResponse } from '@/types/order-created-response'
 
-export type OrderItem = {
-  id: string;
-  clienteNome: string;
-  produto: string;
-  valor: number;
-  status: string;
-  data_criacao: string;
-}
+export type OrdersList = OrderCreatedResponse[];

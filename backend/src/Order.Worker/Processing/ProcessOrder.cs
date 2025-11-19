@@ -4,6 +4,9 @@ using Order.Core.Application.Abstractions.Repositories;
 using Order.Core.Domain.Entities;
 using Order.Infrastructure.Persistence;
 using Order.Core.Domain.Entities.Enums;
+using Order.Api.Notification;
+using Order.Worker.Notification;
+using Order.Api.Features.Orders.DTOs;
 
 namespace Order.Worker.Processing;
 
@@ -53,7 +56,8 @@ public sealed class ProcessOrder
             var repo             = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
             var historyRepo      = scope.ServiceProvider.GetRequiredService<IOrderStatusHistoryRepository>();
             var idempotencyStore = scope.ServiceProvider.GetRequiredService<IProcessedMessageStore>();
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var uow              = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var notifications    = scope.ServiceProvider.GetRequiredService<IWorkerOrderNotification>();
 
             await uow.ExecuteInTransactionAsync(async innerCt =>
             {
@@ -69,6 +73,9 @@ public sealed class ProcessOrder
                         "Status alterado para Processando"
                     );
                     await historyRepo.AddAsync(historyProcessed, innerCt);
+                    var order = await repo.GetByIdAsync(orderId, ct);
+
+                    await notifications.NotifyOrderStatusChangedAsync(orderId);
 
                     _logger.LogInformation("Pedido {OrderId} marcado como Processando.", orderId);
                 }
@@ -111,6 +118,8 @@ public sealed class ProcessOrder
                         "Status alterado para Finalizado"
                     );
                     await historyRepo.AddAsync(historyFinalized, innerCt);
+
+                    await notifications.NotifyOrderStatusChangedAsync(orderId, ct);
 
                     _logger.LogInformation("Pedido {OrderId} marcado como Finalizado.", orderId);
                 }

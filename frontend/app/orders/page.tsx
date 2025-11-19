@@ -1,3 +1,4 @@
+// frontend/app/orders/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -6,6 +7,7 @@ import { Eye } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
 import { useStatusToasts } from "@/hooks/useStatusToasts";
+import { useOrderHub } from "@/hooks/useOrderHub";
 
 import AppSidebar from "@/components/layout/AppSidebar";
 import OrdersHeader from "@/components/orders/OrdersHeader";
@@ -17,6 +19,7 @@ import {
   formatCurrency,
   getStatusVariant,
 } from "@/lib/formatters";
+import type { OrderCreatedResponse } from "@/types/order-created-response";
 
 export default function OrdersPage() {
   const { orders, isLoading: loading, error, mutate } = useOrders();
@@ -24,7 +27,8 @@ export default function OrdersPage() {
 
   useStatusToasts(orders, { onlyWhenFinalized: false, dedupeMs: 1500 });
 
-  async function handleOrderCreated() {
+  async function handleOrderCreated(_order: OrderCreatedResponse) {
+    // aqui podemos manter um revalidate completo após criação manual
     await mutate();
     toast({
       title: "Pedido criado!",
@@ -32,15 +36,40 @@ export default function OrdersPage() {
     });
   }
 
+  useOrderHub({
+    onOrderCreated: (created) => {
+      mutate(
+        (current) => {
+          const list = current ?? [];
+          const exists = list.some((o) => o.id === created.id);
+          if (exists) return list;
+          return [created, ...list];
+        },
+        { revalidate: false }
+      );
+
+      toast({
+        title: "Novo pedido recebido",
+        description: "A lista foi atualizada automaticamente.",
+      });
+    },
+
+    // atualiza apenas o status no cache atual, sem disparar novo GET
+    onOrderStatusChanged: (updated) => {
+      mutate(
+        (current) => {
+          const list = current ?? [];
+          return list.map((o) =>
+            o.id === updated.id ? { ...o, status: updated.status } : o
+          );
+        },
+        { revalidate: false }
+      );
+    },
+  });
+
   return (
-    <div
-      className="
-        min-h-screen
-        grid
-        bg-gray-50
-        lg:grid-cols-[280px_1fr]  /* só em telas largas eu reservo espaço pra sidebar */
-      "
-    >
+    <div className="min-h-screen grid bg-gray-50 lg:grid-cols-[280px_1fr]">
       <AppSidebar />
 
       <main className="flex items-start justify-center p-3 sm:p-6">
@@ -63,7 +92,7 @@ export default function OrdersPage() {
               )}
 
               <OrdersTable
-                orders={orders ?? []}
+                orders={orders}
                 loading={loading}
                 formatCurrency={formatCurrency}
                 formatDateTime={formatDateTime}

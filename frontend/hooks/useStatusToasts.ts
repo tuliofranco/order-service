@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import type { OrderItem } from "@/types/orders-list";
+import type { OrderItem } from "@/types/order-created-response";
 
 type Options = {
   onlyWhenFinalized?: boolean;

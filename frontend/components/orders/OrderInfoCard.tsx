@@ -2,10 +2,11 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDateTime } from "@/lib/formatters";
-import type { CompleteOrder, ApiOrderHistoryItem } from "@/types/order-item";
+import { OrderHistoryChange } from "@/types/history-change";
+import type {  OrderHistory } from "@/types/order-history";
 
 type OrderInfoCardProps = {
-  order: CompleteOrder | null;
+  order: OrderHistory | null;
   loading: boolean;
   error: string | null;
 };
@@ -47,7 +48,7 @@ export function OrderInfoCard({ order, loading, error }: OrderInfoCardProps) {
               <InfoRow label="Status" value={order.status} />
               <InfoRow
                 label="Criado em"
-                value={formatDateTime(order.data_criacao)}
+                value={formatDateTime(order.createdAtUtc)}
               />
             </section>
 
@@ -89,7 +90,7 @@ function InfoRow({
   );
 }
 
-function TimelineDot({ status }: { status: ApiOrderHistoryItem["toStatus"] }) {
+function TimelineDot({ status }: { status: OrderHistoryChange["toStatus"] }) {
   const colorByStatus: Record<string, { bg: string; border: string }> = {
     Pendente:     { bg: "bg-yellow-200",    border: "border-yellow-500" },
     Processando:  { bg: "bg-blue-200",      border: "border-blue-500" },
@@ -107,14 +108,13 @@ function TimelineDot({ status }: { status: ApiOrderHistoryItem["toStatus"] }) {
         "w-3 h-3 rounded-full border",
         colors.bg,
         colors.border,
-        // alinhamento vertical suave
         "mt-[2px] shrink-0",
       ].join(" ")}
     />
   );
 }
 
-function Timeline({ history }: { history: ApiOrderHistoryItem[] }) {
+function Timeline({ history }: { history: OrderHistoryChange[] }) {
   return (
     <ol className="rounded-md border border-gray-200 bg-white">
       {history.map((h, idx) => (

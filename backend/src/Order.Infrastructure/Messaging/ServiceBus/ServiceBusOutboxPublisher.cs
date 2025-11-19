@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Order.Infrastructure.Messaging.ServiceBus;
 
-public sealed class ServiceBusOutboxPublisher : IOutboxPublisher
+public sealed class ServiceBusOutboxPublisher
 {
     private readonly ServiceBusClient _client;
     private readonly ILogger<ServiceBusOutboxPublisher> _logger;

@@ -58,7 +58,7 @@ public static class DependencyInjection
         if (string.IsNullOrWhiteSpace(asbEntityName))
             throw new InvalidOperationException("Nome da fila/tópico do ASB não configurado (defina ASB_ENTITY ou passe via AddInfrastructure).");
 
-        services.AddScoped<IOutboxPublisher>(sp =>
+        services.AddScoped<ServiceBusOutboxPublisher>(sp =>
             new ServiceBusOutboxPublisher(
                 sp.GetRequiredService<ServiceBusClient>(),
                 asbEntityName!,
