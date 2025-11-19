@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Order.Api.Features.Orders.DTOs;
+using Order.Core.Application.Abstractions.Notification;
 
 namespace Order.Worker.Notification;
 
@@ -22,7 +22,7 @@ public sealed class WorkerOrderNotification : IWorkerOrderNotification, IAsyncDi
         if (string.IsNullOrWhiteSpace(options.Value.HubUrl))
             throw new InvalidOperationException("WorkerNotificationOptions.HubUrl não foi configurado.");
         
-        _hubUrl = options.Value.HubUrl;    
+        _hubUrl = options.Value.HubUrl;
 
         _connection = new HubConnectionBuilder()
             .WithUrl(_hubUrl)

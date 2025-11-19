@@ -1,6 +1,4 @@
-using Order.Api.Features.Orders.DTOs;
-
-namespace Order.Worker.Notification;
+namespace Order.Core.Application.Abstractions.Notification;
 
 public interface IWorkerOrderNotification
 {

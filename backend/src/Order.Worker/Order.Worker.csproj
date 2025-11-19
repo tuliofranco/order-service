@@ -22,6 +22,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Order.Core\Order.Core.csproj" />
     <ProjectReference Include="..\Order.Infrastructure\Order.Infrastructure.csproj" />
-    <ProjectReference Include="..\Order.Api\Order.Api.csproj" />
   </ItemGroup>
 </Project>

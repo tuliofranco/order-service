@@ -15,6 +15,7 @@ using Order.Worker.Processing;
 using Order.Worker.Notification;
 using Azure.Messaging.ServiceBus;
 using DotNetEnv;
+using Order.Core.Application.Abstractions.Notification;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
@@ -34,13 +35,13 @@ builder.Configuration
 var services = builder.Services;
 var configuration = builder.Configuration;
 var hubUrl =
-    Environment.GetEnvironmentVariable("NEXT_PUBLIC_ORDER_HUB_PATH") ?? configuration["Notification:HubUrl"]; // url completa: http://localhost:5127/hub/notification
+    Environment.GetEnvironmentVariable("ORDER_HUB_URL") ?? configuration["Notification:HubUrl"]; // url completa: http://localhost:5127/hub/notification
 
 if (string.IsNullOrWhiteSpace(hubUrl))
 {
     throw new InvalidOperationException(
         "Hub URL do SignalR não configurado. " +
-        "Defina NEXT_PUBLIC_ORDER_HUB_URL ou Notification:HubUrl."
+        "Defina ORDER_HUB_URL ou Notification:HubUrl."
     );
 }
 

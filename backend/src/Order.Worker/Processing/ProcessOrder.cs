@@ -4,9 +4,7 @@ using Order.Core.Application.Abstractions.Repositories;
 using Order.Core.Domain.Entities;
 using Order.Infrastructure.Persistence;
 using Order.Core.Domain.Entities.Enums;
-using Order.Api.Notification;
-using Order.Worker.Notification;
-using Order.Api.Features.Orders.DTOs;
+using Order.Core.Application.Abstractions.Notification;
 
 namespace Order.Worker.Processing;
 

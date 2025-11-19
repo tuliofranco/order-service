@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { OrderItem } from "@/types/orders-list";
+import type { OrderHistory } from "@/types/order-history";
 import { useToast } from "@/hooks/use-toast";
 
-type Status = OrderItem["status"];
+type Status = OrderHistory["status"];
 
 export function useOrderStatusToast(
-  order: OrderItem | null,
+  order: OrderHistory | null,
   opts?: { dedupeMs?: number; onlyWhenFinalized?: boolean }
 ) {
   const { toast } = useToast();
