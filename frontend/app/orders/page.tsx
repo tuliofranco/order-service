@@ -29,7 +29,6 @@ export default function OrdersPage() {
   useStatusToasts(orders, { onlyWhenFinalized: false, dedupeMs: 1500 });
 
   async function handleOrderCreated(_order: OrderCreatedResponse) {
-    // aqui podemos manter um revalidate completo após criação manual
     await mutate();
     toast({
       title: "Pedido criado!",

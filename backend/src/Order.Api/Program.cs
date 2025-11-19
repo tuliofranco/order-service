@@ -14,10 +14,9 @@ using System.Text.Json;
 using Microsoft.CodeAnalysis.Options;
 using System.Text.Json.Serialization;
 
+try { DotNetEnv.Env.TraversePath().Load(); } catch { }
 
 var builder = WebApplication.CreateBuilder(args);
-
-try { DotNetEnv.Env.TraversePath().Load(); } catch { }
 
 
 builder.Services.AddSingleton<IHealthCheckPublisher, ComponentHealthPublisher>();
@@ -76,7 +75,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("default");
 app.MapControllers();
-app.MapHub<OrderNotificationHub>("/hub/notification");
+app.MapHub<OrderNotificationHub>("/hub/notification"); // Apenas o caminho do hub /hub/notification
 
 
 app.MapHealthChecks("/health", new HealthCheckOptions

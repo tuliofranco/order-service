@@ -34,7 +34,7 @@ builder.Configuration
 var services = builder.Services;
 var configuration = builder.Configuration;
 var hubUrl =
-    Environment.GetEnvironmentVariable("NEXT_PUBLIC_ORDER_HUB_URL") ?? configuration["Notification:HubUrl"];
+    Environment.GetEnvironmentVariable("NEXT_PUBLIC_ORDER_HUB_PATH") ?? configuration["Notification:HubUrl"]; // url completa: http://localhost:5127/hub/notification
 
 if (string.IsNullOrWhiteSpace(hubUrl))
 {
