@@ -14,10 +14,19 @@ using System.Text.Json;
 using Microsoft.CodeAnalysis.Options;
 using System.Text.Json.Serialization;
 
-try { DotNetEnv.Env.TraversePath().Load(); } catch { }
-
 var builder = WebApplication.CreateBuilder(args);
 
+try
+{
+    if (string.Equals(
+            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+            "Development",
+            StringComparison.OrdinalIgnoreCase))
+    {
+        DotNetEnv.Env.TraversePath().Load();
+    }
+}
+catch { }
 
 builder.Services.AddSingleton<IHealthCheckPublisher, ComponentHealthPublisher>();
 
