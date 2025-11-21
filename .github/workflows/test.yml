@@ -34,13 +34,13 @@ jobs:
             9.0.109
 
       - name: Restore
-        run: dotnet restore backend/OrderService.sln
+        run: dotnet restore backend/tests/Order.Core.Tests/Order.Core.Tests.csproj
 
       - name: Build
-        run: dotnet build backend/OrderService.sln --configuration Release --no-restore
+        run: dotnet build backend/tests/Order.Core.Tests/Order.Core.Tests.csproj --configuration Release --no-restore
 
       - name: Test with coverage
-        run: dotnet test backend/OrderService.sln --configuration Release --no-build --collect:"XPlat Code Coverage"
+        run: dotnet test backend/tests/Order.Core.Tests/Order.Core.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage"
 
       - name: Restore dotnet tools
         run: dotnet tool restore
@@ -48,7 +48,7 @@ jobs:
       - name: Generate coverage report
         run: |
           dotnet tool run reportgenerator \
-            "-reports:backend/tests/**/TestResults/**/coverage.cobertura.xml" \
+            "-reports:backend/tests/Order.Core.Tests/TestResults/**/coverage.cobertura.xml" \
             "-targetdir:coverage-report" \
             "-reporttypes:HtmlSummary;Html"
 
