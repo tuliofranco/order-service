@@ -1,0 +1,43 @@
+{
+  "order": {
+    "id": "a7ca4702-30df-488a-8849-c5eadb6a4efa",
+    "clienteNome": "Tulio Test E2E",
+    "produto": "Boleto",
+    "valor": 123.45,
+    "status": "Finalizado",
+    "data_criacao": "2025-11-21T12:39:43.222928Z",
+    "data_de_efetivacao": "2025-11-21T12:39:48.719121Z"
+  },
+  "history": [
+    {
+      "id": "248232e9-c9fa-434e-b9d4-207ce5525c04",
+      "orderId": "a7ca4702-30df-488a-8849-c5eadb6a4efa",
+      "fromStatus": null,
+      "toStatus": "Pendente",
+      "occurredAtUtc": "2025-11-21T12:39:43.223913+00:00",
+      "correlationId": "a7ca4702-30df-488a-8849-c5eadb6a4efa",
+      "source": "Api",
+      "eventId": "67298e5d-bfb6-44e3-aba9-0e7f4da8966c"
+    },
+    {
+      "id": "a1b773c2-6068-400f-aaec-98f25db6434c",
+      "orderId": "a7ca4702-30df-488a-8849-c5eadb6a4efa",
+      "fromStatus": "Pendente",
+      "toStatus": "Processando",
+      "occurredAtUtc": "2025-11-21T12:39:43.706446+00:00",
+      "correlationId": "a7ca4702-30df-488a-8849-c5eadb6a4efa",
+      "source": "Worker",
+      "eventId": "67298e5d-bfb6-44e3-aba9-0e7f4da8966c"
+    },
+    {
+      "id": "e0bd023c-f02c-48dd-8c69-23f31afb9b05",
+      "orderId": "a7ca4702-30df-488a-8849-c5eadb6a4efa",
+      "fromStatus": "Processando",
+      "toStatus": "Finalizado",
+      "occurredAtUtc": "2025-11-21T12:39:48.722177+00:00",
+      "correlationId": "a7ca4702-30df-488a-8849-c5eadb6a4efa",
+      "source": "Worker",
+      "eventId": "67298e5d-bfb6-44e3-aba9-0e7f4da8966c"
+    }
+  ]
+}

@@ -15,7 +15,9 @@ public class OrderTests
         var produto = "Boleto";
         var valor = 300m;
 
+        var before = DateTime.UtcNow;
         var order = DomainOrder.Create(nome, produto, valor);
+        var after = DateTime.UtcNow;
 
         order.Should().NotBeNull();
 
@@ -29,9 +31,9 @@ public class OrderTests
             "toda ordem recém criada começa como Pendente");
 
         order.data_criacao.Should()
-            .BeOnOrBefore(DateTime.UtcNow)
+            .BeOnOrAfter(before)
             .And
-            .BeOnOrAfter(DateTime.UtcNow.AddMinutes(-1));
+            .BeOnOrBefore(after);
     }
 
     [Fact]

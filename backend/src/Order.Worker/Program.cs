@@ -25,25 +25,22 @@ builder.Logging.AddJsonConsole(o =>
     o.IncludeScopes = true;
 });
 
-try { Env.TraversePath().Load(); } catch { }
+if (string.Equals(builder.Environment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase))
+{
+    try { Env.TraversePath().Load(); } catch { }
+}
 
 
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: true)
     .AddEnvironmentVariables();
 
+var env = builder.Environment.EnvironmentName;
 var services = builder.Services;
 var configuration = builder.Configuration;
 var hubUrl =
     Environment.GetEnvironmentVariable("ORDER_HUB_URL") ?? configuration["Notification:HubUrl"]; // url completa: http://localhost:5127/hub/notification
 
-if (string.IsNullOrWhiteSpace(hubUrl))
-{
-    throw new InvalidOperationException(
-        "Hub URL do SignalR não configurado. " +
-        "Defina ORDER_HUB_URL ou Notification:HubUrl."
-    );
-}
 
 services.Configure<WorkerNotificationOptions>(options =>
 {
