@@ -13,7 +13,6 @@ public class OrderCreateEndToEndTests
 {
     private readonly HttpClient _client;
     private readonly EnvironmentFixture _env;
-    private readonly ITestOutputHelper _output;
     private sealed record CreateOrderResponse(
         Guid Id,
         string ClienteNome,
@@ -22,10 +21,9 @@ public class OrderCreateEndToEndTests
         string Status
     );
 
-    public OrderCreateEndToEndTests(EnvironmentFixture env, ITestOutputHelper output)
+    public OrderCreateEndToEndTests(EnvironmentFixture env)
     {
         _env = env;
-        _output = output;
         var port = env.Api.GetMappedPublicPort(8080);
         var baseUrl = $"http://localhost:{port}";
 
@@ -51,19 +49,11 @@ public class OrderCreateEndToEndTests
         var created = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
         created.Should().NotBeNull();
         var orderId = created!.Id;
-        _output.WriteLine($"[TEST] Ordem lida do banco:");
-        _output.WriteLine($"       Id={created?.Id}");
 
-        await Task.Delay(TimeSpan.FromSeconds(20));
+        await Task.Delay(TimeSpan.FromSeconds(10));
 
         await using var db = _env.CreateDbContext();
         var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId);
-        _output.WriteLine($"[TEST] Ordem lida do banco:");
-        _output.WriteLine($"       Id={order?.Id}");
-        _output.WriteLine($"       Status={order?.Status}");
-        _output.WriteLine($"       data_criacao={order?.data_criacao:O}");
-        _output.WriteLine($"       data_de_efetivacao={order?.data_de_efetivacao:O}");
-        await Task.Delay(TimeSpan.FromSeconds(50));
         order.Should().NotBeNull("a ordem criada deve existir no banco");
         order!.Status.Should().Be(OrderStatus.Finalizado,
             "após o processamento assíncrono o status deve ser Finalizado");
