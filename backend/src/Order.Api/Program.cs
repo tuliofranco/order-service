@@ -13,6 +13,8 @@ using Order.Api.Notification;
 using System.Text.Json;
 using Microsoft.CodeAnalysis.Options;
 using System.Text.Json.Serialization;
+using MediatR;
+using Order.Core.Application.Orders.Create;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +44,8 @@ builder.Logging.AddJsonConsole(o =>
 {
     o.IncludeScopes = true;
 });
+
+builder.Services.AddMediatR(typeof(CreateOrderCommand));
 
 builder.Services.AddControllers()
     .AddJsonOptions(o =>

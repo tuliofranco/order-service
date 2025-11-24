@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Order.IntegrationTests.Fixtures;
 using Order.Core.Domain.Entities.Enums;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Order.IntegrationTests.Orders;
 
@@ -49,11 +50,10 @@ public class OrderCreateEndToEndTests
         created.Should().NotBeNull();
         var orderId = created!.Id;
 
-        await Task.Delay(TimeSpan.FromSeconds(8));
+        await Task.Delay(TimeSpan.FromSeconds(10));
 
         await using var db = _env.CreateDbContext();
         var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId);
-
         order.Should().NotBeNull("a ordem criada deve existir no banco");
         order!.Status.Should().Be(OrderStatus.Finalizado,
             "após o processamento assíncrono o status deve ser Finalizado");

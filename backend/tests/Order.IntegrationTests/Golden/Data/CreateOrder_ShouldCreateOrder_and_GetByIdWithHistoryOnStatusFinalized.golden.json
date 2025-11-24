@@ -1,0 +1,37 @@
+{
+  "id": "SANITIZED_GUID",
+  "clienteNome": "Tulio Franco",
+  "produto": "Carro",
+  "valor": 45000.00,
+  "status": "Finalizado",
+  "createdAtUtc": "SANITIZED_DATE",
+  "history": [
+    {
+      "id": "SANITIZED_GUID",
+      "orderId": "SANITIZED_GUID",
+      "fromStatus": null,
+      "toStatus": "Pendente",
+      "occurredAt": "SANITIZED_DATE",
+      "source": "Api",
+      "correlationId": "SANITIZED_GUID"
+    },
+    {
+      "id": "SANITIZED_GUID",
+      "orderId": "SANITIZED_GUID",
+      "fromStatus": "Pendente",
+      "toStatus": "Processando",
+      "occurredAt": "SANITIZED_DATE",
+      "source": "Worker",
+      "correlationId": "SANITIZED_GUID"
+    },
+    {
+      "id": "SANITIZED_GUID",
+      "orderId": "SANITIZED_GUID",
+      "fromStatus": "Processando",
+      "toStatus": "Finalizado",
+      "occurredAt": "SANITIZED_DATE",
+      "source": "Worker",
+      "correlationId": "SANITIZED_GUID"
+    }
+  ]
+}

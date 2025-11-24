@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Golden\*.json" CopyToOutputDirectory="Always" />
     <Using Include="Xunit" />
   </ItemGroup>
 
