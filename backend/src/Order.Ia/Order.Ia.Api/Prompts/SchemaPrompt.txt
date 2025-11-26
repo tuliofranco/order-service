@@ -1,0 +1,17 @@
+=== SCHEMA DO BANCO (PostgreSQL) ===
+
+Tabela: orders
+- id UUID PRIMARY KEY
+- cliente_nome VARCHAR(200)
+- produto VARCHAR(200)
+- valor NUMERIC(18,2)
+- status VARCHAR(20) -- valores: Pendente, Processando, Finalizado
+- data_criacao TIMESTAMP
+- data_atualizacao TIMESTAMP
+
+Tabela: order_status_history
+- id UUID
+- order_id UUID
+- status_anterior VARCHAR
+- novo_status VARCHAR
+- data TIMESTAMP

@@ -75,6 +75,25 @@ services:
       ASB_ENTITY: ${ASB_ENTITY}
       ORDER_HUB_URL: ${ORDER_HUB_URL}
 
+  iaapi:
+    build:
+      context: ./backend
+      dockerfile: ./src/Order.Ia/Order.Ia.Api/Dockerfile
+    container_name: orders-ia-api
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ORDER_API_URL: http://api:8080 
+    ports:
+      - "${IA_API_PORT}:8080"
+
+
   frontend:
     build:
       context: ./frontend

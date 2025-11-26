@@ -1,0 +1,10 @@
+=== REGRAS PARA GERAR SQL ===
+- Gere somente SELECT
+- PostgreSQL apenas
+- Nunca modifique dados
+- Nunca use DELETE, UPDATE, INSERT, ALTER ou DROP
+- Nunca execute múltiplos statements
+- Nunca use tabelas que não existem no schema
+- Sempre limite a 200 resultados
+- Use apenas funções nativas do PostgreSQL
+- Não utilizar \n na resposta, apenas a query

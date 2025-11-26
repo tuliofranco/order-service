@@ -1,0 +1,8 @@
+=== TAREFA ===
+Sua tarefa é converter a pergunta do usuário em SQL válida para PostgreSQL.
+
+- Gere apenas a SQL necessária.
+- Sem texto adicional.
+- Sem comentários.
+- Sem markdown.
+- Apenas SQL.
