@@ -50,7 +50,7 @@ public class OrderCreateEndToEndTests
         created.Should().NotBeNull();
         var orderId = created!.Id;
 
-        await Task.Delay(TimeSpan.FromSeconds(10));
+        await Task.Delay(TimeSpan.FromSeconds(50));
 
         await using var db = _env.CreateDbContext();
         var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId);

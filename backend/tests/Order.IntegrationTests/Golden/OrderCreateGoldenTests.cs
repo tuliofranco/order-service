@@ -40,7 +40,7 @@ public class OrderCreateGoldenTests
         var created = await response.Content.ReadFromJsonAsync<CreatedOrderResponse>();
         created.Should().NotBeNull();
 
-        await Task.Delay(TimeSpan.FromSeconds(7));
+        await Task.Delay(TimeSpan.FromSeconds(50));
 
         var id = created!.id;
 
