@@ -12,7 +12,7 @@ public sealed class ProcessOrder
 {
     private readonly ILogger<ProcessOrder> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
-    private const int FinalizeDelaySeconds = 5;
+    private const int FinalizeDelaySeconds = 30;
 
     private static OrderStatusHistory BuildHistory(
         Guid orderId,

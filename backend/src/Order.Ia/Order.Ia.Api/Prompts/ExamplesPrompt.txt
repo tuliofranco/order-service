@@ -1,0 +1,20 @@
+=== EXEMPLOS ===
+
+Pergunta: "Pedidos acima de 1000"
+SQL:
+SELECT * FROM orders
+WHERE valor > 1000
+LIMIT 200;
+
+Pergunta: "Pedidos finalizados ontem"
+SQL:
+SELECT * FROM orders
+WHERE status = 'finalized'
+AND data_criacao::date = CURRENT_DATE - INTERVAL '1 day'
+LIMIT 200;
+
+Pergunta: "Pedidos do cliente João"
+SQL:
+SELECT * FROM orders
+WHERE cliente_nome ILIKE '%João%'
+LIMIT 200;

@@ -15,6 +15,7 @@ using Microsoft.CodeAnalysis.Options;
 using System.Text.Json.Serialization;
 using MediatR;
 using Order.Core.Application.Orders.Create;
+using Order.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,7 +32,7 @@ try
 catch { }
 
 builder.Services.AddSingleton<IHealthCheckPublisher, ComponentHealthPublisher>();
-
+builder.Services.AddScoped<ISqlExecutionService, SqlExecutionService>();
 builder.Services.Configure<HealthCheckPublisherOptions>(opt =>
 {
     opt.Delay = TimeSpan.Zero;

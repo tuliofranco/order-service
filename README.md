@@ -1,8 +1,9 @@
-
 # Order-Service
 
-Sistema simples de gestão de pedidos com **API .NET**, **Frontend React/Next**, **PostgreSQL** e **Azure Service Bus**.
-Quando um pedido é criado, os dados são persistidos, um **evento** é publicado na fila e um **Worker** processa o pedido, avançando o status até **Finalizado**.
+Sistema simples de gestão de pedidos com **API .NET**, **Frontend React/Next**, **PostgreSQL**, **Azure Service Bus** e um módulo de **IA/Analytics** que responde perguntas em linguagem natural sobre os pedidos.
+
+Quando um pedido é criado, os dados são persistidos, um **evento** é publicado na fila e um **Worker** processa o pedido, avançando o status até **Finalizado**.  
+O módulo de IA gera SQL a partir da pergunta do usuário, executa na API e grava o histórico (pergunta, resposta, modelo e tokens) em um **MongoDB**.
 
 > Principais pontos
 >
@@ -14,6 +15,11 @@ Quando um pedido é criado, os dados são persistidos, um **evento** é publicad
 > * Tracing ponta-a-ponta habilitado
 > * **Atualização em tempo real via SignalR** (criação de pedidos e mudança de status)
 > * **Testes de integração com Testcontainers + Golden Tests**
+> * **Módulo IA/Analytics**:
+>   * Gera SQL via LLM a partir da pergunta do usuário
+>   * Executa o SQL via endpoint interno da API
+>   * Responde em linguagem natural
+>   * Salva histórico em MongoDB com **modelo usado** e **quantidade de tokens**
 
 ---
 
@@ -22,24 +28,25 @@ Quando um pedido é criado, os dados são persistidos, um **evento** é publicad
 * [Stack e versões](#stack)
 * [Subindo tudo (1 comando)](#up)
 * [Configuração (.env)](#env)
-
   * [Backend: API, Worker, Banco, Service Bus e PgAdmin](#env-backend)
+  * [IA / MongoDB / OpenAI](#env-ia)
   * [Frontend](#env-frontend)
   * [Ambiente de testes (.env.test)](#env-test)
 * [Endpoints principais (API)](#api)
-
   * [Health](#health)
 * [Frontend](#fe)
 * [Notificações em tempo real (SignalR)](#realtime)
 * [Outbox e Mensageria (transacional)](#outbox)
 * [Worker (consumidor)](#worker)
+* [Módulo IA/Analytics](#ai)
+  * [Arquitetura IA](#ai-arch)
+  * [Endpoints IA](#ai-endpoints)
+  * [Histórico em MongoDB](#ai-history)
 * [Testes](#tests)
 * [Diagramas](#diagrams)
-
   * [Sequência (criação do pedido → processamento)](#seq)
   * [Implantação (Docker Compose)](#deploy)
 * [Troubleshooting](#troubleshooting)
-* [Módulo opcional — IA/Analytics (escopo)](#ai)
 * [Diferenciais Técnicos (bônus)](#bonuses)
 * [Checklist de entrega](#checklist)
 * [Entrega esperada (repositório)](#entrega)
@@ -50,11 +57,13 @@ Quando um pedido é criado, os dados são persistidos, um **evento** é publicad
 
 ## Stack e versões
 
-* **Backend**: .NET SDK **9.0.109**  (ASP.NET Core + SignalR)
+* **Backend**: .NET SDK **9.0.109** (ASP.NET Core + Minimal APIs + SignalR)
 * **Frontend**: Next.js **^16.0.1**, React **^19**
-* **Banco**: PostgreSQL 16 (Docker)
+* **Banco relacional**: PostgreSQL 16 (Docker)
 * **Mensageria**: Azure Service Bus — fila **`orders`**
 * **Comunicação em tempo real**: ASP.NET Core SignalR (WebSockets com fallback)
+* **Banco NoSQL (IA)**: MongoDB 6 + Mongo Express (admin web)
+* **LLM / IA**: OpenAI Chat API (`gpt-4o-mini`)
 * **Infra**: Docker / Docker Compose
 * **Migrations**: automáticas no startup (sem seed)
 * **Testes de integração**: Testcontainers + Golden Tests
@@ -67,14 +76,20 @@ Quando um pedido é criado, os dados são persistidos, um **evento** é publicad
 
 ```bash
 docker compose up --build -d
-```
+````
 
-* **Frontend (UI):** [http://localhost:3000/orders](http://localhost:3000/orders)
-* **API (Swagger):** [http://localhost:5127/swagger/index.html](http://localhost:5127/swagger/index.html)
-* **Healthcheck:** [http://localhost:5127/health](http://localhost:5127/health)
-* **PgAdmin:** [http://localhost:5050/login?next=/](http://localhost:5050/login?next=/)
+Serviços principais:
 
-> Apenas `docker compose up --build -d` é necessário para subir todo o ambiente.
+* **Frontend (UI):** `http://localhost:3000/orders`
+
+  * Tela de IA: `http://localhost:3000/ia`
+* **API de Pedidos (Swagger):** `http://localhost:5127/swagger/index.html`
+* **Healthcheck da API:** `http://localhost:5127/health`
+* **PgAdmin:** `http://localhost:5050`
+* **Mongo Express (IA / histórico):** `http://localhost:8081`
+* **API de IA (Swagger / endpoints):** `http://localhost:8082/swagger` (porta configurável via `.env`)
+
+> Apenas `docker compose up --build -d` é necessário para subir todo o ambiente (API, Worker, Frontend, Postgres, PgAdmin, MongoDB, Mongo Express e IA API).
 
 ---
 
@@ -83,6 +98,14 @@ docker compose up --build -d
 ## Configuração (.env)
 
 Use o arquivo `.env.example` como base (copie para `.env` na raiz do projeto).
+
+```bash
+cp .env.example .env
+```
+
+Ajuste os valores conforme sua máquina/ambiente.
+
+---
 
 <a id="env-backend"></a>
 
@@ -112,19 +135,49 @@ PGADMIN_PASSWORD=admin123
 PGADMIN_PORT=5050
 ```
 
+Observações:
+
+* O host do Postgres dentro da rede Docker é `db` (vide `STRING_CONNECTION`).
+* O evento publicado inclui `EventType=OrderCreated` e **`CorrelationId=OrderId`** na cadeia (API → ASB → Worker).
+
+---
+
+<a id="env-ia"></a>
+
+### IA / MongoDB / OpenAI
+
+```env
+# ---------- MongoDB (IA / histórico) ----------
+MONGO_CONNECTION=mongodb://mongo:27017
+MONGO_DB=orderIa
+
+# ---------- OpenAI ----------
+# Chave de API usada pelo Order.Ia.Api
+OPENAI_API_KEY=sk-...
+
+# Porta exposta da API de IA (host)
+IA_API_PORT=8082
+```
+
+* O container do **MongoDB** é acessado internamente via host `mongo` na porta `27017`.
+* O histórico da IA é persistido no banco `orderIa`, coleção `history`.
+* A API de IA lê `MONGO_CONNECTION` e `MONGO_DB` via `IConfiguration` e usa `OpenAIClient` com `OPENAI_API_KEY`.
+
+---
+
 <a id="env-frontend"></a>
 
 ### Frontend
 
 ```env
-# URL da API consumida pelo Frontend
+# URL da API de pedidos consumida pelo Frontend
 NEXT_PUBLIC_API_URL=http://localhost:5127
+
+# (Opcional) se a IA tiver uma URL diferente da API de pedidos:
+NEXT_PUBLIC_IA_API_URL=http://localhost:8082
 ```
 
-Observações:
-
-* O evento publicado inclui `EventType=OrderCreated` e **`CorrelationId=OrderId`** em toda a cadeia (API → ASB → Worker).
-* O host do Postgres no Docker Compose é `db` (vide `STRING_CONNECTION`).
+> A tela `/ia` do frontend usa o endpoint da IA API para enviar perguntas e exibir a resposta.
 
 ---
 
@@ -148,7 +201,7 @@ Conteúdo básico do `.env.test`:
 # Ambiente de testes
 ASPNETCORE_ENVIRONMENT=Test
 
-# Banco de testes (repara no nome diferente)
+# Banco de testes
 POSTGRES_DB=orders_db_tests
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
@@ -171,11 +224,13 @@ ORDER_HUB_URL=http://orders-api:8080/hub/notification
 
 <a id="api"></a>
 
-## Endpoints principais (API)
+## Endpoints principais (API de pedidos)
 
 * `POST /orders` → Cria um novo pedido
 * `GET  /orders` → Lista todos os pedidos
 * `GET  /orders/{id}` → Detalhes de um pedido
+* `GET  /orders/{id}/history` → Histórico de status do pedido
+* `POST /internal/sql` → Endpoint interno para execução de SQL (usado pela IA)
 
 <a id="health"></a>
 
@@ -183,7 +238,7 @@ ORDER_HUB_URL=http://orders-api:8080/hub/notification
 
 * `GET /health` → verifica API, DB e fila
 
-Atributos do pedido: `id`, `cliente`, `produto`, `valor`, `status`, `data_criacao`
+Atributos do pedido: `id`, `cliente_nome`, `produto`, `valor`, `status`, `data_criacao`, `data_efetivacao`
 Regras de negócio: persistir no Postgres; publicar no ASB; status na sequência **Pendente → Processando → Finalizado**.
 
 ---
@@ -196,17 +251,22 @@ Rotas principais:
 
 * **Lista de pedidos:** `http://localhost:3000/orders`
 * **Detalhes do pedido:** `http://localhost:3000/orders/{orderId}/details`
+* **Tela de IA / Analytics:** `http://localhost:3000/ia`
 
-Feedback visual:
+Features:
 
-* Toasts em mudanças de status
+* Criação de pedido com formulário simples
+* Lista paginada com status, valor, datas, etc.
+* Toasts e feedback visual em mudanças de status
 * **Atualização em tempo real via SignalR**:
 
   * Notificação de **novo pedido criado**
   * Notificação de **mudança de status** (Pendente → Processando → Finalizado)
-* Polling apenas como fallback/ponto específico (detalhes ou cenários sem WebSockets, se necessário)
+* Tela de IA:
 
-> Opcionalmente, ajuste `NEXT_PUBLIC_API_URL` para apontar a API em outra URL.
+  * Campo de entrada de pergunta
+  * Mostra pergunta + resposta formatada
+  * Integração com IA API
 
 ---
 
@@ -220,13 +280,13 @@ Além do fluxo assíncrono via Azure Service Bus, o projeto expõe um **Hub Sign
 
   * **OrderCreatedNotification** → dispara quando um novo pedido é criado
   * **OrderChangeStatusNotification** → dispara quando o Worker avança o status do pedido
+
 * O frontend (Next.js) mantém uma conexão com o Hub usando **@microsoft/signalr**:
 
   * Na tela de lista (`/orders`), o hook `useOrderHub`:
 
     * Adiciona pedidos novos na tabela assim que são criados
     * Atualiza o `status` dos pedidos no cache do SWR ao receber eventos de mudança de status
-* Com isso, a tabela de pedidos é atualizada em tempo real, sem necessidade de polling contínuo na API.
 
 ---
 
@@ -239,9 +299,9 @@ Além do fluxo assíncrono via Azure Service Bus, o projeto expõe um **Hub Sign
 
 * **Transação única**: **pedido** + **mensagem de outbox** gravados na **mesma transação**.
 
-* **Dispatcher**: Publicação no Azure Service Bus: o **publicador de outbox** é o `ServiceBusOutboxPublisher`.
+* **Dispatcher**: publicação no Azure Service Bus via `ServiceBusOutboxPublisher`.
 
-* **Idempotência**: consumidor usa chaves (`OrderId`) e controle de mensagens já processadas.
+* **Idempotência**: consumidor usa chave de negócio (`OrderId`) e controle de mensagens já processadas.
 
 * **Limpeza**: após confirmação, marca como processada e realiza delete/soft-delete.
 
@@ -263,6 +323,108 @@ Fluxo ao consumir `OrderCreated`:
 3. Atualiza o status para **Finalizado**
 
 O consumidor é idempotente e segue a sequência de status obrigatória.
+
+---
+
+<a id="ai"></a>
+
+## Módulo IA/Analytics
+
+Tela e API para perguntas em linguagem natural sobre os pedidos, por exemplo:
+
+* “Quais pedidos com status `Processando` existem agora?”
+* “Qual o valor total de pedidos finalizados hoje?”
+* “Quantos pedidos o cliente X fez este mês?”
+
+### Fluxo geral
+
+1. Frontend envia **pergunta em texto** para a IA API (`Order.Ia.Api`).
+2. A IA API usa o **schema do banco + regras + exemplos** para gerar um **SQL seguro**.
+3. A IA API chama o endpoint interno `/internal/sql` da API de pedidos, enviando o SQL gerado.
+4. A API de pedidos valida o SQL (ex.: exige `LIMIT`, bloqueia comandos perigosos) e executa no Postgres.
+5. A IA API recebe o JSON bruto, gera uma **resposta em português** para o usuário.
+6. A IA API salva o histórico em MongoDB (`orderIa.history`), incluindo:
+
+   * Pergunta do usuário
+   * SQL gerado
+   * Resposta final
+   * **Modelo usado** (ex: `gpt-4o-mini`)
+   * **Tokens usados** (soma das duas chamadas de IA)
+   * `CreatedAt`
+
+---
+
+<a id="ai-arch"></a>
+
+### Arquitetura IA
+
+**Projetos principais:**
+
+* `Order.Ia.Api` (Minimal API .NET)
+* `Order.Ia.Application` (serviços de domínio da IA)
+* `Order.Ia.Application.Services.IAService`
+
+  * Usa `ChatClient` (`gpt-4o-mini`) para:
+
+    * Gerar o SQL (`GenerateSqlAsync`)
+    * Gerar a resposta final em PT-BR (`AnswerAsync`)
+  * Recupera `Model` e `Usage` (tokens) do `ChatCompletion`
+* `Order.Ia.Application.Services.IAHistoryService`
+
+  * Usa `MongoClient` com `MONGO_CONNECTION` e `MONGO_DB`
+  * Salva documentos na coleção `history`
+
+**Banco IA (MongoDB):**
+
+* **Database**: `orderIa`
+* **Collection**: `history`
+* Exemplo de documento:
+
+```json
+{
+  "_id": "...",
+  "Question": "Quando pedidos com status processando existem?",
+  "Answer": "Atualmente, existe um pedido com o status \"Processando\"...",
+  "Sql": "SELECT ...",
+  "ModelUsed": "gpt-4o-mini",
+  "TokensUsed": 142,
+  "CreatedAt": "2025-11-27T01:49:38Z"
+}
+```
+
+---
+
+<a id="ai-endpoints"></a>
+
+### Endpoints IA
+
+Na **IA API** (`Order.Ia.Api`), expostos via Minimal API:
+
+* `POST /ia` (ou `/ia/ask`)
+
+  * Body: `{ "question": "texto da pergunta" }`
+  * Response: `{ "answer": "texto em português para o usuário" }`
+* (Opcional) `GET /ia/history`
+
+  * Lista os últimos registros do histórico (ex.: últimos 50 documentos da collection `history`)
+
+> A tela `/ia` do frontend chama o endpoint `POST /ia` e exibe a resposta.
+
+---
+
+<a id="ai-history"></a>
+
+### Visualizando o histórico da IA (MongoDB)
+
+* Acesse **Mongo Express** em `http://localhost:8081`
+* Clique em **`orderIa`** → **`history`**
+* Cada documento representa uma pergunta/resposta processada, incluindo:
+
+  * `Question`
+  * `Answer`
+  * `CreatedAt`
+  * `ModelUsed`
+  * `TokensUsed`
 
 ---
 
@@ -292,9 +454,9 @@ backend/tests/Order.IntegrationTests
   └─ .env.test          # Arquivo usado localmente pelos testes (não versionado)
 ```
 
-Os **Golden Tests** comparam as respostas reais da API com arquivos na pasta `Golden/`, garantindo que a contração de resposta não seja quebrada sem intenção.
+Os **Golden Tests** comparam as respostas reais da API com arquivos na pasta `Golden/`, garantindo que o contrato de resposta não seja quebrado sem intenção.
 
-Os **Testcontainers** sobem automaticamente um Postgres de teste (usando o alias `db`) e aplicam o schema necessário antes de rodar os cenários.
+Os **Testcontainers** sobem automaticamente um Postgres de teste (alias `db`) e aplicam o schema necessário antes de rodar os cenários.
 
 ---
 
@@ -347,6 +509,10 @@ graph LR
     WK["Worker (.NET)"] --- DB
     WK --- ASB
     PG["pgAdmin<br/>:5050"] --- DB
+
+    IAAPI["IA API (.NET)<br/>:8082"] --- API
+    IAAPI --- MG["MongoDB<br/>:27017"]
+    MGE["Mongo Express<br/>:8081"] --- MG
   end
 ```
 
@@ -360,22 +526,15 @@ graph LR
 * Mensageria → confirme `ASB_CONNECTION` e se a fila `orders` existe.
 * Migrations → aplicadas automaticamente no startup (ver logs).
 * Frontend não encontra API → defina `NEXT_PUBLIC_API_URL=http://localhost:5127` e reinicie o frontend.
-* Testes de integração falhando por conexão:
+* IA retornando erro 500:
 
-  * Confirme se `.env.test` existe em `backend/tests/Order.IntegrationTests`.
-  * Verifique se a porta do Postgres de teste não está em conflito.
-  * Verifique se o Docker está rodando (Testcontainers depende disso).
+  * Verifique logs da API de pedidos (`docker logs orders-api`) – muitas validações de SQL (`A query deve conter um LIMIT`) são intencionais.
+  * Verifique se `OPENAI_API_KEY` está configurado.
+  * Verifique se `MONGO_CONNECTION` / `MONGO_DB` estão corretos.
+* Mongo Express vazio:
 
----
-
-<a id="ai"></a>
-
-## Módulo opcional — IA/Analytics (escopo)
-
-Endpoint/tela para perguntas em linguagem natural sobre os pedidos (ex.: “Pedidos hoje?”, “Tempo médio?”, “Pendentes agora?”, “Valor total finalizado no mês”).
-A LLM interpreta a pergunta, consulta o banco e responde com dados reais.
-
-> Este módulo é opcional e pode render pontos extras.
+  * Confirme se você já executou pelo menos uma pergunta na tela `/ia`.
+  * Verifique se o histórico está sendo salvo na collection `history` do banco `orderIa`.
 
 ---
 
@@ -389,9 +548,8 @@ A LLM interpreta a pergunta, consulta o banco e responde com dados reais.
 * SignalR/WebSockets com fallback
 * Testcontainers (integração)
 * Golden Tests (contrato da API)
-* Módulo IA/Analytics com LLM
-
-Os itens acima (exceto o módulo de IA/Analytics) já estão implementados neste projeto.
+* Módulo IA/Analytics com LLM + MongoDB
+* Execução de SQL via endpoint interno com validações de segurança (LIMIT obrigatório, bloqueio de comandos perigosos)
 
 ---
 
@@ -406,7 +564,7 @@ Os itens acima (exceto o módulo de IA/Analytics) já estão implementados neste
 * [x] Outbox Pattern transacional
 * [x] Worker idempotente: Processando → Finalizado (delay ~5s)
 * [x] Healthchecks (API, DB, fila)
-* [x] Frontend: listagem, criação, detalhes, toasts e polling
+* [x] Frontend: listagem, criação, detalhes, toasts e SignalR
 * [x] Docker Compose (API, Worker, Frontend, Postgres, PgAdmin)
 * [x] `.env.example` incluído
 * [x] Tracing ponta-a-ponta habilitado
@@ -414,7 +572,7 @@ Os itens acima (exceto o módulo de IA/Analytics) já estão implementados neste
 * [x] SignalR/WebSockets com fallback
 * [x] Testcontainers
 * [x] Golden Tests
-* [ ] Módulo IA/Analytics com LLM (pergunte sobre os pedidos)
+* [x] Módulo IA/Analytics com LLM + MongoDB
 
 ---
 

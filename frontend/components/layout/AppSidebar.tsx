@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Package } from "lucide-react";
+import { Brain, Package, Sparkles } from "lucide-react";
 import { memo } from "react";
+import { usePathname } from "next/navigation";
 
 function AppSidebar() {
+  const pathname = usePathname();
+
+  const isActive = (path: string) =>
+    pathname === path || pathname.startsWith(path + "/");
   return (
     <aside
       className="
@@ -22,18 +27,39 @@ function AppSidebar() {
 
         {/* Navegação */}
         <nav className="space-y-2">
+
+          {/* Pedidos */}
           <Link
             href="/orders"
-            className="
-              flex items-center gap-3
-              px-4 py-3 rounded-lg
-              bg-white/10 text-white font-medium
-              hover:bg-white/15 transition-colors
-            "
-            aria-current="page"
+            className={`
+              flex items-center gap-3 px-4 py-3 rounded-lg font-medium
+              transition-colors
+              ${
+                isActive("/orders")
+                  ? "bg-white/10 text-white"
+                  : "text-gray-300 hover:bg-white/10 hover:text-white"
+              }
+            `}
           >
             <Package className="h-5 w-5 shrink-0" />
             <span>Pedidos</span>
+          </Link>
+
+          {/* Inteligência Artificial */}
+          <Link
+            href="/ia"
+            className={`
+              flex items-center gap-3 px-4 py-3 rounded-lg font-medium
+              transition-colors
+              ${
+                isActive("/ia")
+                  ? "bg-white/10 text-white"
+                  : "text-gray-300 hover:bg-white/10 hover:text-white"
+              }
+            `}
+          >
+            <Sparkles className="h-5 w-5 shrink-0" />
+            <span>Inteligência Artificial</span>
           </Link>
         </nav>
       </div>

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Sidebar } from "@/components/layout/Sidebar";
+import AppSidebar from "@/components/layout/AppSidebar";
 import { OrderInfoCard } from "@/components/orders/OrderInfoCard";
 import { useOrder } from "@/hooks/useOrder";
 import { useOrderStatusToast } from "@/hooks/useOrderStatusToast";
@@ -29,7 +29,7 @@ export default function OrderDetailsPage() {
 
   return (
     <div className="min-h-screen grid md:grid-cols-[280px_1fr] bg-gray-50">
-      <Sidebar />
+      <AppSidebar />
       <main className="flex items-start justify-center p-4 sm:p-6">
         <div className="w-full max-w-3xl">
           <div className="mb-4 flex flex-wrap items-center gap-2">

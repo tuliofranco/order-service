@@ -1,4 +1,24 @@
 services:
+  mongo:
+    image: mongo:6
+    container_name: orders-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+    - mongo_data:/data/db
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: orders-mongo-express
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: "mongodb://mongo:27017/"
+      ME_CONFIG_BASICAUTH_ENABLED: "false"
   db:
     image: postgres:16-alpine
     container_name: orders-postgres
@@ -75,6 +95,25 @@ services:
       ASB_ENTITY: ${ASB_ENTITY}
       ORDER_HUB_URL: ${ORDER_HUB_URL}
 
+  iaapi:
+    build:
+      context: ./backend
+      dockerfile: ./src/Order.Ia/Order.Ia.Api/Dockerfile
+    container_name: orders-ia-api
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ORDER_API_URL: http://api:8080 
+    ports:
+      - "${IA_API_PORT}:8080"
+
+
   frontend:
     build:
       context: ./frontend
@@ -96,3 +135,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  mongo_data:

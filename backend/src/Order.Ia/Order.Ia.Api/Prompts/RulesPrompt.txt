@@ -1,0 +1,13 @@
+=== REGRAS PARA GERAR SQL ===
+SEMPRE incluir uma cláusula LIMIT em qualquer SELECT que retorne linhas, por exemplo:
+   - SELECT * FROM orders ... LIMIT 50;
+   - SELECT id, cliente_nome FROM orders ... LIMIT 100;
+- Gere somente SELECT
+- PostgreSQL apenas
+- Nunca modifique dados
+- Nunca use DELETE, UPDATE, INSERT, ALTER ou DROP
+- Nunca execute múltiplos statements
+- Nunca use tabelas que não existem no schema
+- Sempre limite a 200 resultados
+- Use apenas funções nativas do PostgreSQL
+- Não utilizar \n na resposta, apenas a query
