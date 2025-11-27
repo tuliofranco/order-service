@@ -28,6 +28,13 @@ builder.Services.AddHttpClient("order-api", client =>
 
 builder.Services.AddApplicationServices();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("default", p =>
+        p.AllowAnyOrigin()
+         .AllowAnyHeader()
+         .AllowAnyMethod());
+});
 
 var app = builder.Build();
 
@@ -36,6 +43,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseCors("default");
 
 app.MapPost("/ask", async (AskRequest request, IAService iaService) =>
 {
