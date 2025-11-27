@@ -519,20 +519,34 @@ sequenceDiagram
 
 ### Implantação (Docker Compose)
 
+#### 1. Backend principal
+
 ```mermaid
 graph LR
   subgraph Docker
-    FE["Frontend<br/>:3000"] --- API["API (.NET)<br/>:5127"]
-    API --- DB["Postgres<br/>:5432"]
-    API --- ASB["Azure Service Bus"]
+    FE["Frontend<br/>:3000"] --- API["API Pedidos (.NET)<br/>:5127"]
+    API --- DB["PostgreSQL<br/>:5432"]
+    API --- ASB["Azure Service Bus<br/>fila: orders"]
     WK["Worker (.NET)"] --- DB
     WK --- ASB
     PG["pgAdmin<br/>:5050"] --- DB
+  end
+```
 
-    IAAPI["IA API (.NET)<br/>:5233"] --- API
+---
+
+#### 2. Módulo IA / Analytics (Frontend + IA)
+
+```mermaid
+graph LR
+  subgraph Docker
+    FE["Frontend (/ia)<br/>:3000"] --- IAAPI["IA API (.NET)<br/>:5233"]
+
+    IAAPI --- API["API Pedidos (.NET)<br/>:5127"]
     IAAPI --- MG["MongoDB<br/>:27017"]
     MGE["Mongo Express<br/>:8081"] --- MG
   end
+less
 ```
 
 ---
