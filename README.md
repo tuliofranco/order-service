@@ -572,7 +572,7 @@ graph LR
 * [x] SignalR/WebSockets com fallback
 * [x] Testcontainers
 * [x] Golden Tests
-* [x] **Módulo IA/Analytics com LLM + MongoDB**
+* [x] Módulo IA/Analytics com LLM + MongoDB
 
 ---
 
