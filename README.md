@@ -21,9 +21,9 @@ O módulo de IA gera SQL a partir da pergunta do usuário, executa na API e grav
 >   * Responde em linguagem natural
 >   * Salva histórico em MongoDB com **modelo usado** e **quantidade de tokens**
 
-🎥 **Vídeo de apresentação do projeto**  
-[https://youtu.be/iyAXQNvVQF0](https://youtu.be/iyAXQNvVQF0)
----
+
+🎥 Vídeo de apresentação do projeto
+[Vídeo da POC](https://youtu.be/iyAXQNvVQF0)
 
 ## Table of Contents
 
