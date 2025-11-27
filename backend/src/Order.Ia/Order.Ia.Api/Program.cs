@@ -39,11 +39,14 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+
+app.UseSwagger();
+app.UseSwaggerUI(o =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    o.SwaggerEndpoint("/swagger/v1/swagger.json", "Order IA API v1");
+    o.RoutePrefix = "swagger";
+});
+
 app.UseCors("default");
 
 app.MapPost("/ask", async (AskRequest request, IAService iaService, IAHistoryService historyService) =>

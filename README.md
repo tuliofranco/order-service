@@ -87,7 +87,8 @@ Serviços principais:
 * **Healthcheck da API:** `http://localhost:5127/health`
 * **PgAdmin:** `http://localhost:5050`
 * **Mongo Express (IA / histórico):** `http://localhost:8081`
-* **API de IA (Swagger / endpoints):** `http://localhost:8082/swagger` (porta configurável via `.env`)
+* **API de IA (Swagger / endpoints):** `http://localhost:5233/swagger`
+
 
 > Apenas `docker compose up --build -d` é necessário para subir todo o ambiente (API, Worker, Frontend, Postgres, PgAdmin, MongoDB, Mongo Express e IA API).
 
@@ -104,6 +105,16 @@ cp .env.example .env
 ```
 
 Ajuste os valores conforme sua máquina/ambiente.
+
+Além disso, é necessário configurar as variáveis do frontend:
+```bash
+cd frontend
+cp .env.example .env
+```
+
+O arquivo frontend/.env é usado pelo Next.js para expor as variáveis
+NEXT_PUBLIC_API_URL e NEXT_PUBLIC_IA_API_URL, necessárias para o
+frontend se comunicar com a API de pedidos e com a API de IA.
 
 ---
 
@@ -156,7 +167,7 @@ MONGO_DB=orderIa
 OPENAI_API_KEY=sk-...
 
 # Porta exposta da API de IA (host)
-IA_API_PORT=8082
+IA_API_PORT=5233
 ```
 
 * O container do **MongoDB** é acessado internamente via host `mongo` na porta `27017`.
@@ -173,11 +184,19 @@ IA_API_PORT=8082
 # URL da API de pedidos consumida pelo Frontend
 NEXT_PUBLIC_API_URL=http://localhost:5127
 
-# (Opcional) se a IA tiver uma URL diferente da API de pedidos:
-NEXT_PUBLIC_IA_API_URL=http://localhost:8082
 ```
 
 > A tela `/ia` do frontend usa o endpoint da IA API para enviar perguntas e exibir a resposta.
+
+Lembre-se de copiar `frontend/.env.example` para `frontend/.env`, pois é
+nesse arquivo que são definidas:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5127
+NEXT_PUBLIC_IA_API_URL=http://localhost:5233
+```
+
+Sem esse arquivo, o frontend não consegue falar com a API de IA.
 
 ---
 
@@ -510,7 +529,7 @@ graph LR
     WK --- ASB
     PG["pgAdmin<br/>:5050"] --- DB
 
-    IAAPI["IA API (.NET)<br/>:8082"] --- API
+    IAAPI["IA API (.NET)<br/>:5233"] --- API
     IAAPI --- MG["MongoDB<br/>:27017"]
     MGE["Mongo Express<br/>:8081"] --- MG
   end
