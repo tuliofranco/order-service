@@ -2,6 +2,7 @@ using OpenAI;
 using DotNetEnv;
 using Order.Ia.Api.DTOs;
 using Order.Ia.Application;
+using Order.Ia.Application.Services;
 
 Env.Load("../../../../.env");
 
@@ -45,12 +46,25 @@ if (app.Environment.IsDevelopment())
 }
 app.UseCors("default");
 
-app.MapPost("/ask", async (AskRequest request, IAService iaService) =>
+app.MapPost("/ask", async (AskRequest request, IAService iaService, IAHistoryService historyService) =>
 {
     var response = await iaService.AnswerAsync(request.Pergunta);
+    await historyService.SaveAsync(
+        question: request.Pergunta,
+        response: response
+    );
+
     return Results.Ok(response);
 })
 .WithName("AskIa")
 .WithOpenApi();
+
+app.MapGet("/history", async (IAHistoryService history) =>
+{
+    var items = await history.ListAsync();
+    return Results.Ok(items);
+})
+.WithName("IaHistory")
+.WithOpenApi();;
 
 app.Run();
