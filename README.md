@@ -548,7 +548,7 @@ graph LR
 * SignalR/WebSockets com fallback
 * Testcontainers (integração)
 * Golden Tests (contrato da API)
-* **Módulo IA/Analytics com LLM + MongoDB**
+* Módulo IA/Analytics com LLM + MongoDB
 * Execução de SQL via endpoint interno com validações de segurança (LIMIT obrigatório, bloqueio de comandos perigosos)
 
 ---
